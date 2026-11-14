@@ -1,0 +1,24 @@
+name: Buat package-lock.json
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - name: Buat lockfile (tanpa menjalankan skrip paket)
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          (cd electron-offline && npm install --package-lock-only --ignore-scripts)
+      - name: Commit lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json electron-offline/package-lock.json
+          git commit -m "chore: tambah package-lock.json (build reprodusibel)" || echo "Tidak ada perubahan"
+          git push
