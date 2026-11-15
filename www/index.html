@@ -979,7 +979,7 @@ return api})();
 
 const PUB="5625b72eedbdc66cb67bc07abcae0009b71bc440608c5d3be83eefd77d4a87ff",LIC_HP='085252371110',LIC_WA='6285252371110',LIC_STRICT=false;/* LIC_STRICT=true: seluruh aplikasi terkunci sampai diaktifkan */
 /* ===== Aktivasi ONLINE (per HP). Isi pid & key dengan proyek Firebase MILIK PENJUAL (bukan proyek toko). Kosong = fitur online mati, aplikasi hanya memakai Key Registrasi offline seperti biasa. ===== */
-const LIC_FB={pid:'',key:''},LIC_GRACE_DAYS=30,LIC_RECHECK_H=6;
+const LIC_FB={pid:'lisensi-pos-apk',key:'AIzaSyAnPBjZwQ-zma6o6Rlka0yxfTdh5IXAIMw'},LIC_GRACE_DAYS=30,LIC_RECHECK_H=6;
 let DEV='',LIC=false,LICOFF=false,LICON=null;/* LICOFF = key offline sah; LICON = hasil cek online terakhir {ok,until,last,t} */
 const lnorm=s=>String(s||'').replace(/[\s-]/g,'').toUpperCase(),lfmt5=s=>(lnorm(s).match(/.{1,5}/g)||[]).join('-');
 function licVerify(id,key){try{const sig=ED.b32d(lnorm(key));return sig.length===64&&ED.verify(sig,new TextEncoder().encode('POS-TOKO|'+id),ED.unhex(PUB))}catch(e){return false}}
