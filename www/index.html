@@ -181,7 +181,7 @@ let S={products:[],settings:{},held:[],log:[],sales:[]},cart=[],idb=null,tm,dirt
 function toast(m,ms){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',ms||2600)}
 const req=r=>new Promise((ok,no)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
 const tx=(s,m='readonly')=>idb.transaction(s,m).objectStore(s);
-function save(...k){k.forEach(x=>dirty.add(x));clearTimeout(tm);tm=setTimeout(flush,200);if(typeof syncTouch==='function')syncTouch()}
+function save(...k){k.forEach(x=>dirty.add(x));clearTimeout(tm);tm=setTimeout(flush,200);if(typeof syncTouch==='function')syncTouch();if(k.includes('settings')&&typeof idSchedule==='function')try{idSchedule()}catch(e){}}
 async function flush(){if(!idb)return;for(const k of[...dirty]){await req(tx('kv','readwrite').put(S[k],k));dirty.delete(k)}}
 addEventListener('beforeunload',flush);
 const putSale=s=>idb&&req(tx('sales','readwrite').put(s));
@@ -1000,20 +1000,84 @@ async function licOnCheck(){if(!LIC_FB.pid||!LIC_FB.key)return'off';
   if(!r.ok)return'err';
   const d=await r.json(),f=d.fields||{},act=!!(f.active&&f.active.booleanValue);let until=0;
   if(f.until){const u=f.until.timestampValue||f.until.stringValue||'',n=Date.parse(u);if(!isNaN(n))until=/^\d{4}-\d{2}-\d{2}$/.test(u)?n+864e5-1:n}
-  LICON={ok:act,until,last:now,t:now};await licOnSave();await soloStore(!!(f.solo&&f.solo.booleanValue));return act?'ok':'no'}
+  LICON={ok:act,until,last:now,t:now,resetpin:!!(f.resetpin&&f.resetpin.booleanValue)};await licOnSave();await soloStore(!!(f.solo&&f.solo.booleanValue));return act?'ok':'no'}
  catch(e){return'err'}}
 /* ===== MODE SOLO: diatur penjual lewat kolom solo (boolean) di dokumen licenses/<Kode Perangkat>. Disimpan terpisah (localStorage + kv 'solo'), tidak ikut backup/pulihkan/sinkronisasi. Hanya berlaku bila lisensi aktif. ===== */
 function soloOn(){return SOLO&&LIC}
 async function soloStore(v){SOLO=!!v;try{localStorage.setItem('pos_solo',SOLO?'1':'0')}catch(e){}if(idb)try{await req(tx('kv','readwrite').put(SOLO?1:0,'solo'))}catch(e){}}
 async function soloLoad(){let v=null;try{v=localStorage.getItem('pos_solo')}catch(e){}if(v===null&&idb)try{v=await req(tx('kv').get('solo'))}catch(e){}SOLO=v===1||v==='1'||v===true}
 function licInfoTxt(){return 'Lisensi: AKTIF · Kode Perangkat '+DEV+' · Kontak penjual '+LIC_HP+((!LICOFF&&LICON&&LICON.until)?' · berlaku sampai '+new Date(LICON.until).toLocaleDateString('id-ID'):'')+(soloOn()?' · Mode Solo: AKTIF (diatur penjual)':'')}
-async function licRefresh(){const was=LIC,ws=soloOn(),r=await licOnCheck();LIC=LICOFF||licOnValid();const ns=soloOn();if(ns)owner=true;else if(ws||!LIC)owner=false;
+async function licRefresh(){const was=LIC,ws=soloOn(),r=await licOnCheck();LIC=LICOFF||licOnValid();idSchedule(1500);if(LIC&&LICON&&LICON.resetpin)pinResetFlow();const ns=soloOn();if(ns)owner=true;else if(ws||!LIC)owner=false;
  if(was!==LIC||ws!==ns){try{applyMode()}catch(e){}if(ws!==ns){try{audit(ns?'solo_on':'solo_off','',{sumber:'lisensi penjual'})}catch(e){}toast(ns?'Mode Solo diaktifkan oleh penjual':'Mode Solo dimatikan oleh penjual: kembali ke mode Kasir',4200)}}return r}
 setInterval(()=>{if(LIC_FB.pid&&(!LICON||Date.now()-LICON.t>LIC_RECHECK_H*36e5))licRefresh()},600000);
 async function licInit(){const id=await devId();DEV=id.slice(0,4)+'-'+id.slice(4);let k='';try{k=localStorage.getItem('pos_lic')||''}catch(e){}if(!k&&idb)k=await req(tx('kv').get('lic'))||'';LICOFF=!!k&&licVerify(id,k);await licOnLoad();await soloLoad();LIC=LICOFF||licOnValid();if(LIC_FB.pid)setTimeout(licRefresh,1500)}
+/* ===== LAPOR IDENTITAS TOKO ke Firebase PENJUAL (dokumen stores/<Kode Perangkat>) =====
+   Yang dikirim HANYA: nama toko, telepon, alamat, teks bawah struk (+ waktu). PIN, logo, transaksi, produk TIDAK dikirim.
+   Hemat kuota: kirim hanya jika isinya benar-benar berbeda dari yang terakhir berhasil terkirim (1 tulis/perubahan),
+   ditunda 3 detik (gabung beberapa ketikan), dan gagal/offline otomatis dicoba lagi dengan jeda bertahap (maks 6 jam).
+   Contoh: perubahan lain di Pengaturan (tema, printer, logo, dll) tidak menghasilkan kiriman apa pun. */
+var ID_KEYS=['name','tel','addr','foot'],ID_LIM={name:100,tel:40,addr:300,foot:300},ID_SENT=null,ID_TM=0,ID_BUSY=false,ID_NEXT=0,ID_FAIL=0;
+function idCur(){const o={};ID_KEYS.forEach(k=>{o[k]=String((S.settings&&S.settings[k])||'').trim().slice(0,ID_LIM[k])});return o}
+function idSig(o){return JSON.stringify(ID_KEYS.map(k=>o[k]))}
+async function idLoad(){let v='';try{v=localStorage.getItem('pos_idsent')||''}catch(e){}if(!v&&idb)try{v=await req(tx('kv').get('idsent'))||''}catch(e){}ID_SENT=v}
+async function idMark(v){ID_SENT=v;try{localStorage.setItem('pos_idsent',v)}catch(e){}if(idb)try{await req(tx('kv','readwrite').put(v,'idsent'))}catch(e){}}
+function idSchedule(ms){clearTimeout(ID_TM);ID_TM=setTimeout(()=>{idPush()},ms==null?3000:ms)}
+async function idPush(){
+ if(ID_BUSY||!LIC_FB.pid||!LIC_FB.key||!DEV||!LIC||Date.now()<ID_NEXT)return;
+ if(ID_SENT===null)await idLoad();
+ const cur=idCur(),sig=idSig(cur);if(sig===ID_SENT)return;
+ ID_BUSY=true;
+ try{
+  const f={};ID_KEYS.forEach(k=>{f[k]={stringValue:cur[k]}});f.u={timestampValue:new Date().toISOString()};
+  const q=ID_KEYS.concat('u').map(k=>'updateMask.fieldPaths='+k).join('&');
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);let r;
+  try{r=await fetch('https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(LIC_FB.pid)+'/databases/(default)/documents/stores/'+encodeURIComponent(DEV)+'?'+q+'&key='+encodeURIComponent(LIC_FB.key),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:f}),signal:c.signal})}finally{clearTimeout(t)}
+  if(r.ok){await idMark(sig);ID_FAIL=0;ID_NEXT=0}
+  else{ID_FAIL++;ID_NEXT=Date.now()+(r.status===429?36e5:r.status===403?216e5:Math.min(3e5*Math.pow(2,ID_FAIL-1),216e5))}
+ }catch(e){ID_FAIL++;ID_NEXT=Date.now()+Math.min(3e5*Math.pow(2,ID_FAIL-1),216e5)}
+ finally{ID_BUSY=false}
+ if(idSig(idCur())!==ID_SENT&&Date.now()>=ID_NEXT)idSchedule()
+}
+setInterval(()=>{idPush()},600000);
+window.addEventListener('online',()=>{ID_NEXT=0;idSchedule(2000)});
+/* ===== LUPA PIN: dipicu penjual dari jarak jauh, lewat field resetpin=true di licenses/<Kode Perangkat>.
+   HP mendeteksinya, menampilkan dialog buat PIN baru SATU KALI, lalu matikan sendiri field itu.
+   PIN LAMA TIDAK PERNAH dikirim, dibaca, atau disimpan di Firebase. Penjual tidak pernah tahu PIN toko. ===== */
+let PINRESET_BUSY=false;
+async function pinResetFlow(){
+ if(PINRESET_BUSY)return;PINRESET_BUSY=true;
+ try{
+  const d=$('#dg');
+  d.innerHTML='<h3>Buat PIN Owner baru</h3><p class="m">Penjual menandai perangkat ini lupa PIN. Buat PIN 4 angka baru untuk mode Owner. PIN lama tidak pernah dikirim ke mana pun.</p>'
+   +'<input id="rp-1" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN baru (4 angka)" style="width:100%;font:600 20px monospace;text-align:center;letter-spacing:6px">'
+   +'<input id="rp-2" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ulangi PIN baru" style="width:100%;font:600 20px monospace;text-align:center;letter-spacing:6px;margin-top:8px">'
+   +'<p class="m" id="rp-err" style="color:var(--r);min-height:18px"></p>'
+   +'<div class="bar" style="justify-content:flex-end"><button id="rp-ok">Simpan PIN baru</button></div>';
+  await new Promise(done=>{
+   d.onclose=done;
+   $('#rp-ok').onclick=async()=>{
+    const a=$('#rp-1').value,b=$('#rp-2').value,e=$('#rp-err');
+    if(!/^\d{4}$/.test(a))return e.textContent='PIN harus tepat 4 angka';
+    if(a!==b)return e.textContent='Kedua PIN tidak sama';
+    S.settings.pin=a;save('settings');audit('reset_pin_owner','',{sumber:'penjual'});
+    await pinResetClear();toast('PIN Owner baru tersimpan');d.onclose=null;d.close();done();
+   };
+   d.showModal();$('#rp-1').focus();
+  });
+ }catch(e){}
+ finally{PINRESET_BUSY=false}
+}
+async function pinResetClear(){
+ if(!LIC_FB.pid||!LIC_FB.key||!DEV)return;
+ try{
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);let r;
+  try{r=await fetch('https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(LIC_FB.pid)+'/databases/(default)/documents/licenses/'+encodeURIComponent(DEV)+'?updateMask.fieldPaths=resetpin&key='+encodeURIComponent(LIC_FB.key),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{resetpin:{booleanValue:false}}}),signal:c.signal})}finally{clearTimeout(t)}
+  if(r.ok&&LICON){LICON.resetpin=false;await licOnSave()}
+ }catch(e){}
+}
 function openUrl(u){if(isNative())plug('AppLauncher').openUrl({url:u}).catch(()=>{});else window.open(u,'_blank')}
 function licDlg(strict){const d=$('#dg'),wa='https://wa.me/'+LIC_WA+'?text='+encodeURIComponent('Halo, saya ingin aktivasi POS Toko.\nKode Perangkat: '+DEV);
- d.innerHTML=`<h3>Aktivasi Lisensi</h3><p class="m">Mode Owner &amp; Pengaturan terkunci sampai aplikasi diaktifkan. Kirim <b>Kode Perangkat</b> ini ke penjual untuk mendapatkan <b>Key Registrasi</b> (hanya berlaku untuk perangkat ini).</p>
+ d.innerHTML=`<h3>Aktivasi Lisensi</h3><p class="m">Mode Owner &amp; Pengaturan terkunci sampai aplikasi diaktifkan. Kirim <b>Kode Perangkat</b> ini ke penjual untuk mendapatkan <b>Key Registrasi</b> (hanya berlaku untuk perangkat ini).</p><p class="m" style="font-size:12px">Setelah aktif, nama toko, telepon, alamat, dan teks bawah struk dikirim ke penjual setiap kali Anda mengubahnya. PIN, logo, produk, dan data penjualan tidak pernah dikirim.</p>
 <label class="m" style="font-size:12px">Kode Perangkat</label><div class="bar" style="margin-bottom:6px"><input id="ldev" readonly value="${esc(DEV)}" style="flex:1;font:600 20px monospace"><button id="lcp">Salin</button></div>
 <label class="m" style="font-size:12px">Key Registrasi (tempel dari penjual)</label><textarea id="lkey" rows="4" placeholder="XXXXX-XXXXX-XXXXX-..." autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:100%;font:600 14px monospace;resize:none;margin-bottom:10px"></textarea>
 ${LIC_FB.pid?'<div class="card" style="margin:0 0 10px"><b>Aktivasi online</b><div class="m">Setelah penjual menyetujui Kode Perangkat ini, tekan tombol di bawah (butuh internet). Tidak perlu mengetik key.</div><div class="bar" style="margin:8px 0 0"><button class="p" id="lon">🌐 Cek aktivasi online</button><span class="m" id="lons"></span></div></div>':''}<div class="card" style="margin:0 0 10px"><b>Hubungi penjual</b><div class="m">WhatsApp / telepon: <b>${LIC_HP}</b></div><div class="bar" style="margin:8px 0 0"><button id="lwa">WhatsApp</button><button id="ltel">Telepon</button></div></div>
