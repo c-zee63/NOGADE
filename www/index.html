@@ -79,8 +79,6 @@ body.vk #hpay{display:flex}
 /* bingkai hasil pencarian produk: berwarna agar beda dengan daftar keranjang */
 :root{--rb:#ea580c;--rbg:rgba(234,88,12,.28)}
 @media(prefers-color-scheme:dark){:root{--rb:#fb923c;--rbg:rgba(251,146,60,.30)}}
-/* garis tepi kolom cari produk & jumlah mengikuti warna tombol BAYAR (hanya tepi) */
-#q,#qq{border:2px solid var(--a)}
 #res{border:3px solid var(--rb);box-shadow:0 0 0 3px var(--rbg),0 6px 16px rgba(0,0,0,.18);margin:8px 0 16px}
 @media (orientation:portrait) and (max-width:900px){
 body.vk #hpay{display:none}
@@ -153,7 +151,7 @@ body.sfocus main{padding-bottom:var(--sfpad,80vh)}
 <div class="bar webo"><select id="s-sbaud"></select><button id="sc-conn">Hubungkan scanner serial</button><button id="sc-off">Putuskan</button><span id="sc-st" class="m"></span></div></div>
 <div class="card"><h3 style="margin-top:0">Printer struk</h3><div class="f"><div><label>Sambungan</label><select id="s-ptype"><option value="browser">Driver Windows (dialog cetak browser)</option><option value="serial">Langsung ESC/POS · COM / Bluetooth serial</option><option value="usb">Langsung ESC/POS · USB (WebUSB)</option><option value="rawbt">Bluetooth HP (lewat aplikasi RawBT)</option></select></div><div class="webo"><label>Baud rate (serial)</label><select id="s-pbaud"></select></div><div><label><input type="checkbox" id="s-plogo" style="width:auto"> Cetak logo di struk</label><label><input type="checkbox" id="s-cut" style="width:auto"> Potong kertas otomatis</label></div></div>
 <div class="bar" style="margin-top:8px"><button id="pr-conn">Hubungkan printer</button><button id="pr-off">Putuskan</button><button id="pr-test">Cetak tes</button><span id="pr-st" class="m"></span></div>
-<p class="m nat">Printer Bluetooth di APK memakai aplikasi RawBT dan otomatis aktif (tidak perlu menekan Hubungkan printer). Cukup: (1) pasangkan printer di Pengaturan Bluetooth HP; (2) pasang aplikasi RawBT dari Play Store, buka, lalu pilih printer tersebut di dalamnya; (3) tekan Cetak tes di sini. Saat mencetak, RawBT akan terbuka sebentar.</p><p class="m webo">Printer Bluetooth: pasangkan dulu di Windows, ia akan muncul sebagai port COM. Mode langsung butuh Chrome/Edge. Printer USB biasa dengan driver Windows paling mudah lewat "Driver Windows"; USB langsung butuh driver WinUSB. Klik Simpan pengaturan untuk menyimpan pilihan.</p></div>
+<p class="m nat">Printer Bluetooth: (1) pasangkan printer di Pengaturan Bluetooth HP; (2) pasang aplikasi RawBT dari Play Store, buka, lalu pilih printer tersebut di dalamnya; (3) di sini pilih "Bluetooth HP (lewat aplikasi RawBT)", tekan Hubungkan printer, lalu Cetak tes dan Simpan pengaturan. Saat mencetak, RawBT akan terbuka sebentar.</p><p class="m webo">Printer Bluetooth: pasangkan dulu di Windows, ia akan muncul sebagai port COM. Mode langsung butuh Chrome/Edge. Printer USB biasa dengan driver Windows paling mudah lewat "Driver Windows"; USB langsung butuh driver WinUSB. Klik Simpan pengaturan untuk menyimpan pilihan.</p></div>
 <div class="card"><h3 style="margin-top:0">Sinkronisasi antar HP (Firebase)</h3>
 <div class="f2"><div><label>Project ID</label><input id="sy-pid" autocomplete="off" placeholder="contoh: toko-saya-12345"></div><div><label>Kode HP (beda tiap HP)</label><select id="sy-code"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div>
 <div class="w"><label>API Key</label><input id="sy-key" autocomplete="off" placeholder="AIzaSy..."></div>
@@ -540,13 +538,7 @@ function receiptHTML(s){const st=S.settings,w=st.paper==58?'48mm':'72mm',L=(a,b)
  ${L('No: '+s.id,dstr(s.date))}${L('Kasir',esc(s.cashier))}<hr>${s.items.map((i,x)=>`<div style="margin-top:${x?(+st.feed||0)*1.3:0}em">${esc(i.n)}</div>${L((st.qpre?esc(st.qpre)+' ':'')+i.qty+' '+esc(i.u)+' x '+Math.round(i.price).toLocaleString('id-ID')+(i.disc?' -'+i.disc+'%':''),i.total.toLocaleString('id-ID'))}`).join('')}<hr>
  ${L('Subtotal',s.sub.toLocaleString('id-ID'))}${s.disc?L('Diskon','-'+s.disc.toLocaleString('id-ID')):''}<b>${L('TOTAL',s.total.toLocaleString('id-ID'))}</b>${L(esc(s.method),s.paid.toLocaleString('id-ID'))}${L('Kembali',s.change.toLocaleString('id-ID'))}<hr><div class="c">${esc(st.foot)}</div></body></html>`}
 function browserPrint(s){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.appendChild(f);f.contentDocument.write(receiptHTML(s));f.contentDocument.close();setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),2000)},350)}
-async function nativeHtmlPrint(s){try{await plug('NativePrint').printHtml({html:receiptHTML(s),paper:+S.settings.paper||80,title:'Struk #'+s.id})}catch(e){toast('Gagal membuka dialog cetak Android: '+String(e&&e.message||e))}}
-async function printReceipt(s){try{const nat=isNative(),p=D.printer;
- if(nat&&(!p||p.type==='rawbt')){
-  try{await sendRawBT(await escpos(s))}catch(e){toast('RawBT gagal: '+String(e&&e.message||e)+'. Membuka dialog cetak Android…');await nativeHtmlPrint(s)}
-  return}
- if(p){try{await sendBytes(await escpos(s));return}catch(e){toast('Printer gagal ('+e.message+'), pakai cetak browser');D.printer=null;devStatus()}}
- browserPrint(s)}catch(e){toast('Gagal mencetak: '+String(e&&e.message||e))}}
+async function printReceipt(s){if(D.printer){try{await sendBytes(await escpos(s));return}catch(e){if(D.printer&&D.printer.type==='rawbt')return toast('Printer RawBT gagal: '+e.message);toast('Printer gagal ('+e.message+'), pakai cetak browser');D.printer=null;devStatus()}}browserPrint(s)}
 /* ---- barang ---- */
 const FIELDS=[['b','Barcode'],['k','Kode'],['u','Satuan'],['n','Nama barang'],['kat','Kategori'],['sup','Supplier'],['hb','Harga beli','n'],['h1','Harga jual','n'],['h2','Harga jual 2','n'],['q2','Min qty harga 2','n'],['h3','Harga jual 3','n'],['q3','Min qty harga 3','n'],['h4','Harga jual 4','n'],['q4','Min qty harga 4','n'],['st','Stok','n'],['min','Stok minimum','n']];
 const cats=()=>[...new Set(S.products.map(p=>p.kat).filter(Boolean))].sort();
@@ -836,7 +828,7 @@ function applySetLock(){const lock=!!(SYNC.cfg&&!isMaster());const ids=[...Objec
  ['lh','lbar'].forEach(i=>{const e=document.getElementById(i);if(e)e.style.display=hide?'none':''});
  if(n)n.style.display=hide?'':'none'}
 function fillShared(){fillSetForm(true);applySetLock()}
-function renderSet(){$('#licinfo').textContent='Lisensi: AKTIF · Kode Perangkat '+DEV+' · Kontak penjual '+LIC_HP;const o=['9600','19200','38400','57600','115200'].map(b=>`<option>${b}</option>`).join('');$('#s-sbaud').innerHTML=o;$('#s-pbaud').innerHTML=o;fillSetForm();$('#bkmail').value=S.settings.bkEmail||'';syncUI();prev();devStatus();abFill()}
+function renderSet(){$('#licinfo').textContent='Lisensi: AKTIF · Kode Perangkat '+DEV+' · Kontak penjual '+LIC_HP+((!LICOFF&&LICON&&LICON.until)?' · berlaku sampai '+new Date(LICON.until).toLocaleDateString('id-ID'):'');const o=['9600','19200','38400','57600','115200'].map(b=>`<option>${b}</option>`).join('');$('#s-sbaud').innerHTML=o;$('#s-pbaud').innerHTML=o;fillSetForm();$('#bkmail').value=S.settings.bkEmail||'';syncUI();prev();devStatus();abFill()}
 $('#ssave').onclick=()=>{const ch=[];if(!/^\d{4}$/.test(String($('#s-pin').value)))return toast('PIN harus tepat 4 angka');for(const k in SF){const v=$('#'+SF[k]).value;if(k in SETSNAP&&String(v)===SETSNAP[k])continue;ch.push(k);S.settings[k]=NUM.includes(k)?num(v):v}for(const k in CB){const v=$('#'+CB[k]).checked;if(k in SETSNAP&&v===SETSNAP[k])continue;ch.push(k);S.settings[k]=v}if(ch.length)audit('ubah_pengaturan','',{kolom:ch});save('settings');fillSetForm();brand();renderCart();toast('Pengaturan disimpan')};
 $('#lf2').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const m=Math.min(1,320/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*m);c.height=Math.round(im.height*m);c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.settings.logo=c.toDataURL('image/png');save('settings');brand();prev();toast('Logo diperbarui')};im.src=URL.createObjectURL(f)};
 $('#ld').onclick=()=>{S.settings.logo='';save('settings');brand();prev()};
@@ -880,12 +872,12 @@ function scanCode(c){show('kasir');c=nz(c);const r=byCode(c);if(!r.length){toast
  addCart(r[0]);return true}
 document.addEventListener('keydown',e=>{if(!$('#v-kasir').classList.contains('on')||$('#dg').open||e.ctrlKey||e.altKey||e.key.length!==1)return;if(!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))$('#q').focus()});
 $('#scantest').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#sc-res').textContent='Terbaca: '+e.target.value+' ('+e.target.value.length+' karakter)';e.target.value=''}};
-function devStatus(){$('#sc-st').textContent=D.scan?'Serial terhubung':'Mode keyboard aktif (tanpa pairing)';$('#pr-st').textContent=D.printer?(D.printer.type==='rawbt'?'Otomatis terhubung (RawBT)':'Terhubung ('+D.printer.type+')'):(isNative()?'Belum terhubung – memakai dialog cetak Android':'Belum terhubung – memakai dialog cetak browser')}
+function devStatus(){$('#sc-st').textContent=D.scan?'Serial terhubung':'Mode keyboard aktif (tanpa pairing)';$('#pr-st').textContent=D.printer?'Terhubung ('+D.printer.type+')':'Belum terhubung – memakai dialog cetak browser'}
 async function openPort(role,port){await port.open({baudRate:num(S.settings[role==='scan'?'sbaud':'pbaud'])||9600});D[role]={type:'serial',port};devStatus();if(role==='scan')readLoop(port)}
 async function connSerial(role){if(!navigator.serial)return toast('Butuh Chrome/Edge (Web Serial)');try{const p=await navigator.serial.requestPort();await openPort(role,p);S.settings[role+'Id']=p.getInfo();save('settings');toast('Terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
 async function readLoop(port){const dec=new TextDecoder();let b='';try{while(port.readable){const r=port.readable.getReader();try{for(;;){const{value,done}=await r.read();if(done)break;b+=dec.decode(value);let m;while((m=b.search(/[\r\n]/))>=0){const c=b.slice(0,m).trim();b=b.slice(m+1);if(c)scanCode(c)}}}finally{r.releaseLock()}}}catch(e){}D.scan=null;devStatus()}
 async function connUsb(){if(!navigator.usb)return toast('Butuh Chrome/Edge (WebUSB)');try{const d=await navigator.usb.requestDevice({filters:[]});await d.open();if(!d.configuration)await d.selectConfiguration(1);let ep;for(const i of d.configuration.interfaces){for(const a of i.alternates){const e=a.endpoints.find(x=>x.direction==='out'&&x.type==='bulk');if(e){await d.claimInterface(i.interfaceNumber);ep=e.endpointNumber;break}}if(ep)break}if(!ep)throw new Error('endpoint tidak ditemukan');D.printer={type:'usb',dev:d,ep};devStatus();toast('Printer terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
-async function autoConnect(){if(isNative()){D.printer={type:'rawbt'};if(S.settings.printer!=='rawbt'){S.settings.printer='rawbt';save('settings')}devStatus();return}devStatus();if(!navigator.serial)return;try{for(const port of await navigator.serial.getPorts()){const i=port.getInfo();for(const r of['scan','printer']){const m=S.settings[r+'Id'];if(m&&m.usbVendorId&&!D[r]&&i.usbVendorId===m.usbVendorId&&i.usbProductId===m.usbProductId&&(r==='scan'||S.settings.printer==='serial')){await openPort(r,port);break}}}}catch(e){}}
+async function autoConnect(){if(S.settings.printer==='rawbt'&&isNative())D.printer={type:'rawbt'};devStatus();if(!navigator.serial)return;try{for(const port of await navigator.serial.getPorts()){const i=port.getInfo();for(const r of['scan','printer']){const m=S.settings[r+'Id'];if(m&&m.usbVendorId&&!D[r]&&i.usbVendorId===m.usbVendorId&&i.usbProductId===m.usbProductId&&(r==='scan'||S.settings.printer==='serial')){await openPort(r,port);break}}}}catch(e){}}
 async function closeDev(role){const d=D[role];D[role]=null;try{if(d?.port)await d.port.close();if(d?.dev)await d.dev.close()}catch(e){}devStatus()}
 $('#sc-conn').onclick=()=>{S.settings.sbaud=num($('#s-sbaud').value);connSerial('scan')};$('#sc-off').onclick=()=>closeDev('scan');
 $('#pr-conn').onclick=()=>{const t=$('#s-ptype').value;S.settings.pbaud=num($('#s-pbaud').value);S.settings.printer=t;save('settings');t==='rawbt'?(D.printer={type:'rawbt'},devStatus(),toast('Mode RawBT aktif – coba Cetak tes')):t==='serial'?connSerial('printer'):t==='usb'?connUsb():toast('Mode driver Windows tidak perlu dihubungkan')};$('#pr-off').onclick=()=>closeDev('printer');
@@ -947,10 +939,8 @@ $('#m-scan').onclick=()=>{S.settings.inmode='scan';save('settings');applyInMode(
 $('#scanbtn').onclick=scanCamera;
 async function sendRawBT(u){let b='';for(let i=0;i<u.length;i+=8192)b+=String.fromCharCode.apply(null,u.subarray(i,i+8192));
  if(!isNative())throw new Error('RawBT hanya di aplikasi APK');
- const d=btoa(b);
- try{await plug('NativePrint').rawbt({data:d});return}catch(e){const m=String(e&&e.message||e);if(/NO_RAWBT/.test(m))throw new Error('aplikasi RawBT belum terpasang');if(!/not implemented|unimplemented|not available/i.test(m))throw new Error(m)}
- const r=await plug('AppLauncher').openUrl({url:'rawbt:base64,'+d});if(r&&r.completed===false)throw new Error('aplikasi RawBT belum terpasang')}
-function nativeUI(){const t=$('#s-ptype');if(isNative()){document.body.classList.add('native');[...t.options].forEach(o=>{if(o.value!=='rawbt')o.remove()});t.value='rawbt';t.disabled=true;['pr-conn','pr-off'].forEach(i=>{const e=$('#'+i);if(e)e.style.display='none'});D.printer={type:'rawbt'};devStatus()}else[...t.options].forEach(o=>{if(o.value==='rawbt')o.remove()});if(!isNative()&&S.settings.printer)t.value=S.settings.printer}
+ const r=await plug('AppLauncher').openUrl({url:'rawbt:base64,'+btoa(b)});if(r&&r.completed===false)throw new Error('aplikasi RawBT belum terpasang')}
+function nativeUI(){const t=$('#s-ptype');if(isNative()){document.body.classList.add('native');[...t.options].forEach(o=>{if(o.value==='serial'||o.value==='usb')o.remove()})}else[...t.options].forEach(o=>{if(o.value==='rawbt')o.remove()});if(S.settings.printer)t.value=S.settings.printer}
 const ED=(()=>{
 const P=(1n<<255n)-19n,L=(1n<<252n)+27742317777372353535851937790883648493n,M64=(1n<<64n)-1n;
 const mod=(a,m=P)=>{const r=a%m;return r>=0n?r:r+m};
@@ -988,26 +978,44 @@ const api={verify,hex,unhex,b32e,b32d};
 return api})();
 
 const PUB="5625b72eedbdc66cb67bc07abcae0009b71bc440608c5d3be83eefd77d4a87ff",LIC_HP='085252371110',LIC_WA='6285252371110',LIC_STRICT=false;/* LIC_STRICT=true: seluruh aplikasi terkunci sampai diaktifkan */
-let DEV='',LIC=false;
+/* ===== Aktivasi ONLINE (per HP). Isi pid & key dengan proyek Firebase MILIK PENJUAL (bukan proyek toko). Kosong = fitur online mati, aplikasi hanya memakai Key Registrasi offline seperti biasa. ===== */
+const LIC_FB={pid:'',key:''},LIC_GRACE_DAYS=30,LIC_RECHECK_H=6;
+let DEV='',LIC=false,LICOFF=false,LICON=null;/* LICOFF = key offline sah; LICON = hasil cek online terakhir {ok,until,last,t} */
 const lnorm=s=>String(s||'').replace(/[\s-]/g,'').toUpperCase(),lfmt5=s=>(lnorm(s).match(/.{1,5}/g)||[]).join('-');
 function licVerify(id,key){try{const sig=ED.b32d(lnorm(key));return sig.length===64&&ED.verify(sig,new TextEncoder().encode('POS-TOKO|'+id),ED.unhex(PUB))}catch(e){return false}}
 async function devId(){let id='';try{id=localStorage.getItem('pos_devid')||''}catch(e){}if(!id&&idb)id=await req(tx('kv').get('devid'))||'';
  if(!/^[0-9A-Z]{8}$/.test(id)){const A='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';id=Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>A[b%36]).join('')}
  try{localStorage.setItem('pos_devid',id)}catch(e){}if(idb)await req(tx('kv','readwrite').put(id,'devid'));return id}
-async function licInit(){const id=await devId();DEV=id.slice(0,4)+'-'+id.slice(4);let k='';try{k=localStorage.getItem('pos_lic')||''}catch(e){}if(!k&&idb)k=await req(tx('kv').get('lic'))||'';LIC=!!k&&licVerify(id,k)}
+const licOnValid=()=>!!(LICON&&LICON.ok&&(!LICON.until||LICON.until>Date.now())&&Date.now()-LICON.last<LIC_GRACE_DAYS*864e5);
+async function licOnSave(){try{localStorage.setItem('pos_licon',JSON.stringify(LICON))}catch(e){}if(idb)try{await req(tx('kv','readwrite').put(LICON,'licon'))}catch(e){}}
+async function licOnLoad(){let v=null;try{v=JSON.parse(localStorage.getItem('pos_licon')||'null')}catch(e){}if(!v&&idb)try{v=await req(tx('kv').get('licon'))||null}catch(e){}LICON=v}
+/* Tanya server penjual: dokumen licenses/<Kode Perangkat>. 404 = belum disetujui; active=true = aktif; until (opsional) = batas berlaku. Gagal koneksi: status lama dipakai sampai batas toleransi offline. */
+async function licOnCheck(){if(!LIC_FB.pid||!LIC_FB.key)return'off';
+ try{const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);let r;try{r=await fetch('https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(LIC_FB.pid)+'/databases/(default)/documents/licenses/'+encodeURIComponent(DEV)+'?key='+encodeURIComponent(LIC_FB.key),{signal:c.signal})}finally{clearTimeout(t)}
+  const now=Date.now();
+  if(r.status===404){LICON={ok:false,until:0,last:0,t:now};await licOnSave();return'no'}
+  if(!r.ok)return'err';
+  const d=await r.json(),f=d.fields||{},act=!!(f.active&&f.active.booleanValue);let until=0;
+  if(f.until){const u=f.until.timestampValue||f.until.stringValue||'',n=Date.parse(u);if(!isNaN(n))until=/^\d{4}-\d{2}-\d{2}$/.test(u)?n+864e5-1:n}
+  LICON={ok:act,until,last:now,t:now};await licOnSave();return act?'ok':'no'}
+ catch(e){return'err'}}
+async function licRefresh(){const was=LIC,r=await licOnCheck();LIC=LICOFF||licOnValid();if(!LIC&&owner)owner=false;if(was!==LIC)try{applyMode()}catch(e){}return r}
+setInterval(()=>{if(LIC_FB.pid&&!LICOFF&&(!LICON||Date.now()-LICON.t>LIC_RECHECK_H*36e5))licRefresh()},600000);
+async function licInit(){const id=await devId();DEV=id.slice(0,4)+'-'+id.slice(4);let k='';try{k=localStorage.getItem('pos_lic')||''}catch(e){}if(!k&&idb)k=await req(tx('kv').get('lic'))||'';LICOFF=!!k&&licVerify(id,k);await licOnLoad();LIC=LICOFF||licOnValid();if(LIC_FB.pid&&!LICOFF)setTimeout(licRefresh,1500)}
 function openUrl(u){if(isNative())plug('AppLauncher').openUrl({url:u}).catch(()=>{});else window.open(u,'_blank')}
 function licDlg(strict){const d=$('#dg'),wa='https://wa.me/'+LIC_WA+'?text='+encodeURIComponent('Halo, saya ingin aktivasi POS Toko.\nKode Perangkat: '+DEV);
  d.innerHTML=`<h3>Aktivasi Lisensi</h3><p class="m">Mode Owner &amp; Pengaturan terkunci sampai aplikasi diaktifkan. Kirim <b>Kode Perangkat</b> ini ke penjual untuk mendapatkan <b>Key Registrasi</b> (hanya berlaku untuk perangkat ini).</p>
 <label class="m" style="font-size:12px">Kode Perangkat</label><div class="bar" style="margin-bottom:6px"><input id="ldev" readonly value="${esc(DEV)}" style="flex:1;font:600 20px monospace"><button id="lcp">Salin</button></div>
 <label class="m" style="font-size:12px">Key Registrasi (tempel dari penjual)</label><textarea id="lkey" rows="4" placeholder="XXXXX-XXXXX-XXXXX-..." autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:100%;font:600 14px monospace;resize:none;margin-bottom:10px"></textarea>
-<div class="card" style="margin:0 0 10px"><b>Hubungi penjual</b><div class="m">WhatsApp / telepon: <b>${LIC_HP}</b></div><div class="bar" style="margin:8px 0 0"><button id="lwa">WhatsApp</button><button id="ltel">Telepon</button></div></div>
+${LIC_FB.pid?'<div class="card" style="margin:0 0 10px"><b>Aktivasi online</b><div class="m">Setelah penjual menyetujui Kode Perangkat ini, tekan tombol di bawah (butuh internet). Tidak perlu mengetik key.</div><div class="bar" style="margin:8px 0 0"><button class="p" id="lon">🌐 Cek aktivasi online</button><span class="m" id="lons"></span></div></div>':''}<div class="card" style="margin:0 0 10px"><b>Hubungi penjual</b><div class="m">WhatsApp / telepon: <b>${LIC_HP}</b></div><div class="bar" style="margin:8px 0 0"><button id="lwa">WhatsApp</button><button id="ltel">Telepon</button></div></div>
 <div class="bar" style="margin:0"><button class="p" id="lok">Aktifkan</button>${strict?'':'<button id="lx">Tutup</button>'}</div>`;
  d.oncancel=strict?e=>e.preventDefault():null;d.showModal();
  $('#lcp').onclick=async()=>{try{await navigator.clipboard.writeText(DEV);toast('Kode perangkat disalin')}catch(e){$('#ldev').select();toast('Tekan lama lalu Salin')}};
  $('#lwa').onclick=()=>openUrl(wa);$('#ltel').onclick=()=>openUrl('tel:'+LIC_HP);if(!strict)$('#lx').onclick=()=>d.close();
  const k=$('#lkey');k.oninput=()=>{k.value=lfmt5(k.value).slice(0,123)};
  const go=async()=>{const id=lnorm(DEV);if(!licVerify(id,k.value)){toast('Key salah atau bukan untuk perangkat ini');return}
-  try{localStorage.setItem('pos_lic',k.value)}catch(e){}if(idb)await req(tx('kv','readwrite').put(k.value,'lic'));LIC=true;d.oncancel=null;d.close();applyMode();toast('Aktivasi berhasil. Silakan masuk mode Owner.')};
+  try{localStorage.setItem('pos_lic',k.value)}catch(e){}if(idb)await req(tx('kv','readwrite').put(k.value,'lic'));LICOFF=true;LIC=true;d.oncancel=null;d.close();applyMode();toast('Aktivasi berhasil. Silakan masuk mode Owner.')};
+ const lon=$('#lon');if(lon)lon.onclick=async()=>{const st=$('#lons');st.textContent='Memeriksa...';const r=await licRefresh();if(LIC){d.oncancel=null;d.close();toast('Aktivasi berhasil. Silakan masuk mode Owner.');return}st.textContent=r==='err'?'⚠ Tidak bisa terhubung. Periksa internet.':r==='no'?'Kode perangkat ini belum disetujui penjual.':'Belum aktif'};
  $('#lok').onclick=go;k.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();go()}};if(!strict)k.focus()}
 init();
 </script></body></html>
