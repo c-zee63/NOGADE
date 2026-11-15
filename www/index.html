@@ -103,6 +103,9 @@ body.sfocus main{padding-bottom:var(--sfpad,80vh)}
 /* Pas / 50rb / 100rb: lebar sama dengan kolom Dibayar, rata kanan */
 .qcash{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:140px;max-width:100%;margin:2px 0 8px auto}
 .qcash button{box-sizing:border-box;min-width:0;padding:6px 0;font-size:13px;text-align:center}
+/* garis tepi kolom Cari produk & Jumlah: merah saat tidak diklik, putih saat kursor di dalam kolom (hanya border) */
+#q,#qq{border:2px solid var(--r);padding:6px 8px}
+#q:focus,#qq:focus{border-color:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.45),0 1px 4px rgba(0,0,0,.25)}
 </style></head><body>
 <header><img id="hl" alt=""><b id="hn">POS</b><div id="mq" aria-label="Informasi toko"><span id="mqt"></span></div><span id="syd" style="font-size:15px;margin:0 6px"></span><nav>
 <button data-v="kasir">Kasir</button><button data-v="barang">Barang</button><button data-v="stok">Stok</button><button data-v="riwayat">Riwayat</button><button data-v="laporan">Laporan</button><button data-v="set">Pengaturan</button></nav><button id="mode"></button><button id="tutbtn" type="button" aria-label="Help" title="Help – cara memakai aplikasi"><b>?</b><span>Help</span></button><button id="hpay" class="hpay" type="button" aria-label="Bayar" title="Total belanja – ketuk untuk langsung ke kolom pembayaran"><b>TOTAL PEMBAYARAN</b><span class="hpt hptot">0</span></button></header>
@@ -447,7 +450,7 @@ const NCOL=(()=>{try{return new Intl.Collator('id',{numeric:true,sensitivity:'ba
 function find(q,lim=60){q=q.trim().toLowerCase();if(!q)return[];const ex=byCode(q),ids=new Set(ex.map(p=>p.id));const sc=p=>{const n=String(p.n).toLowerCase();return n.startsWith(q)?0:n.split(/\s+/).some(w=>w.startsWith(q))?1:n.includes(q)?2:3};const rest=S.products.filter(p=>!ids.has(p.id)&&match(p,q)).map(p=>[sc(p),p]).sort((a,b)=>a[0]-b[0]||NCMP(a[1].n,b[1].n)||NCMP(a[1].u,b[1].u)).map(x=>x[1]);return ex.concat(rest).slice(0,lim)}
 function results(box,list,pick){box.innerHTML=list.map(p=>`<div data-id="${p.id}"><span>${esc(p.n)}<small>${esc(p.b)} · stok ${p.st}</small></span>${ubdg(p.u)}<b>${rp(p.h1)}</b></div>`).join('');box.hidden=!list.length;box.style.display=list.length?'block':'none';box.onclick=e=>{const d=e.target.closest('[data-id]');if(d)pick(P(+d.dataset.id))}}
 let pend=null;
-function qtyMode(p){pend=p;hideRes();$('#q').value='';const i=$('#qinfo');i.style.display='block';i.textContent='▶ '+p.n+' ('+p.u+', stok '+p.st+') – isi jumlah lalu tekan Enter · Esc = batal';const q=$('#qq');q.value='';q.style.outline='2px solid var(--a)';focusQty()}
+function qtyMode(p){pend=p;hideRes();$('#q').value='';const i=$('#qinfo');i.style.display='block';i.textContent='▶ '+p.n+' ('+p.u+', stok '+p.st+') – isi jumlah lalu tekan Enter (kosong = 1) · Esc = batal';const q=$('#qq');q.value='';q.style.outline='2px solid var(--a)';focusQty()}
 function focusQty(){const q=$('#qq');q.setAttribute('inputmode','decimal');const go=()=>{if(!pend)return;try{q.focus({preventScroll:false});q.select();q.click()}catch(e){}};go();[120,350,700].forEach(t=>setTimeout(()=>{if(pend&&document.activeElement!==q)go()},t))}
 function qtyReset(){pend=null;$('#qinfo').style.display='none';const q=$('#qq');q.value='';q.style.outline=''}
 function addCart(p,n){if(!p)return;if(n==null)return qtyMode(p);if(!(n>0))return toast('Isi jumlah dulu');const c=cart.find(x=>x.id===p.id);c?c.qty+=n:cart.push({id:p.id,qty:n,disc:0});qtyReset();$('#q').value='';hideRes();renderCart();$('#q').focus()}
@@ -457,7 +460,7 @@ const mark=()=>$$('#res div').forEach((d,i)=>d.classList.toggle('sel',i===ai));
 function showRes(){const v=$('#q').value.replace(/^\d+(?:[.,]\d+)?\*/,'');if(!v.trim()||document.activeElement!==$('#q'))return hideRes();cur=find(v);ai=cur.length?0:-1;results($('#res'),cur,addCart);mark();if(document.body.classList.contains('sfocus'))sfPad()}
 $('#q').oninput=showRes;$('#q').onfocus=showRes;$('#q').onblur=hideRes;$('#res').onmousedown=e=>e.preventDefault();
 $('#qq').onfocus=e=>e.target.select();const isEnter=e=>e.key==='Enter'||e.keyCode===13||e.which===13||e.key==='Go'||e.key==='Done';
-function commitQty(){if(!pend){toast('Pilih produk dulu');return $('#q').focus()}const n=num($('#qq').value);if(!(n>0)){toast('Isi jumlah dulu');return $('#qq').focus()}addCart(pend,n)}
+function commitQty(){if(!pend){toast('Pilih produk dulu');return $('#q').focus()}const raw=String($('#qq').value||'').trim();const n=(raw===''&&S.settings.smode!=='quick')?1:num(raw);if(!(n>0)){toast('Isi jumlah dulu');return $('#qq').focus()}addCart(pend,n)}
 $('#qq').onkeydown=e=>{if(e.key==='Escape'){qtyReset();$('#q').focus();return}if(isEnter(e)){e.preventDefault();commitQty()}};$('#qadd').onclick=commitQty;
 $('#q').onkeydown=e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(cur.length){ai=(ai+(e.key==='ArrowDown'?1:-1)+cur.length)%cur.length;mark();$$('#res div')[ai].scrollIntoView({block:'nearest'})}return}
  if(!isEnter(e))return;e.preventDefault();let v=e.target.value,n=null;const m=v.match(/^(\d+(?:[.,]\d+)?)\*(.+)$/);if(m){n=num(m[1]);v=m[2]}
