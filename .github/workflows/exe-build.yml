@@ -1,0 +1,48 @@
+name: Build EXE (Windows)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'www/**'
+      - 'electron-offline/**'
+      - '.github/workflows/exe-build.yml'
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pastikan package-lock.json electron-offline ada
+        shell: bash
+        run: |
+          if [ ! -f electron-offline/package-lock.json ]; then
+            echo "::error::electron-offline/package-lock.json belum ada. Jalankan dulu workflow 'Buat package-lock.json' (tab Actions), lalu build ulang."
+            exit 1
+          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: electron-offline/package-lock.json
+      - name: Pasang dependensi
+        run: npm ci
+        working-directory: electron-offline
+      - name: Build installer Setup.exe (memakai www/index.html yang sama dengan APK)
+        shell: bash
+        run: |
+          npm run prep
+          npx --no-install electron-builder --win nsis --publish never \
+            -c.nsis.oneClick=false \
+            -c.nsis.perMachine=false \
+            -c.nsis.allowToChangeInstallationDirectory=true \
+            -c.nsis.createDesktopShortcut=true \
+            -c.nsis.createStartMenuShortcut=true \
+            "-c.nsis.artifactName=POS-Toko-Setup-\${version}.exe"
+        working-directory: electron-offline
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: POS-Toko-Setup-exe
+          path: electron-offline/dist/POS-Toko-Setup-*.exe
+          if-no-files-found: error
