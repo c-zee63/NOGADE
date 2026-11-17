@@ -632,10 +632,10 @@ function changeDlg(s,after){const d=$('#dg');d.dataset.k='ch';d.onclose=()=>{del
  $('#chok').onclick=()=>d.close();d.showModal();$('#chok').focus()}
 function itc(s){const q=+(s.items||[]).reduce((a,i)=>a+(+i.qty||0),0).toFixed(2);return (s.items||[]).length+' jenis, '+q+' pcs'}
 function receiptHTML(s){const st=S.settings,w=st.paper==58?'48mm':'72mm',L=(a,b)=>`<div style="display:flex;justify-content:space-between;gap:6px"><span>${a}</span><span>${b}</span></div>`;
- const lgo=DESK&&typeof DKL!=='undefined'&&DKL.src===st.logo&&DKL.out?DKL.out:st.logo;
- return`<html><head><meta charset="utf-8"><style>@page{margin:0}${DESK?'html,body{margin:0;padding:0}':''}body{font:12px monospace;width:${w};margin:${DESK?'0':'2mm'} auto;color:#000}.c{text-align:center}hr{border:0;border-top:1px dashed #000${DESK?';margin:3px 0':''}}img{max-width:80%;max-height:22mm;filter:grayscale(1) contrast(1.4)${DESK?';display:block;margin:0 auto 1mm':''}}</style></head><body><div class="c">${lgo?`<img src="${lgo}">${DESK?'':'<br>'}`:''}<b style="font-size:14px">${esc(st.name)}</b><br>${esc(st.addr)}<br>${esc(st.tel)}</div><hr>
- ${L('No: '+s.id,dstr(s.date))}${L('Kasir',esc(s.cashier))}<hr>${s.items.map((i,x)=>`<div style="margin-top:${x?(+st.feed||0)*1.3:0}em">${esc(i.n)}</div>${L((st.qpre?esc(st.qpre)+' ':'')+i.qty+' '+esc(i.u)+' x '+Math.round(i.price).toLocaleString('id-ID')+(i.disc?' -'+i.disc+'%':''),i.total.toLocaleString('id-ID'))}`).join('')}<hr>
- ${DESK?L('Jumlah item',itc(s)):''}${L('Subtotal',s.sub.toLocaleString('id-ID'))}${s.disc?L('Diskon','-'+s.disc.toLocaleString('id-ID')):''}<b>${L('TOTAL',s.total.toLocaleString('id-ID'))}</b>${L(esc(s.method),s.paid.toLocaleString('id-ID'))}${L('Kembali',s.change.toLocaleString('id-ID'))}<hr><div class="c">${esc(st.foot)}</div></body></html>`}
+ const lgo=DESK&&typeof DKL!=='undefined'&&DKL.src===st.logo&&DKL.out?DKL.out:st.logo;let lgh='';if(DESK&&lgo===DKL.out&&DKL.w>0&&DKL.h>0){const bw=st.paper==58?48:72,nw=DKL.w*25.4/96,nh0=DKL.h*25.4/96,cur=nh0*Math.min(1,.8*bw/nw,22/nh0);lgh=';height:'+Math.max(6,cur-7.4).toFixed(1)+'mm;width:auto'}
+ return`<html><head><meta charset="utf-8"><style>@page{margin:0}${DESK?'html,body{margin:0;padding:0}':''}body{font:12px monospace;width:${w};margin:${DESK?'0':'2mm'} auto;color:#000}.c{text-align:center}hr{border:0;border-top:1px dashed #000${DESK?';margin:3px 0':''}}img{max-width:80%;max-height:22mm;filter:grayscale(1) contrast(1.4)${DESK?';display:block;margin:0 auto 1mm':''}}</style></head><body><div class="c">${lgo?`<img src="${lgo}"${lgh?` style="${lgh.slice(1)}"`:''}>${DESK?'':'<br>'}`:''}<b style="font-size:14px">${esc(st.name)}</b><br>${esc(st.addr)}<br>${esc(st.tel)}</div><hr>
+ ${L('No: '+s.id,dstr(s.date))}${L('Kasir',esc(s.cashier))}<hr>${s.items.map((i,x)=>`<div style="margin-top:${x?(DESK?dkGap():(+st.feed||0))*1.3:0}em">${esc(i.n)}</div>${L((st.qpre?esc(st.qpre)+' ':'')+i.qty+' '+esc(i.u)+' x '+Math.round(i.price).toLocaleString('id-ID')+(i.disc?' -'+i.disc+'%':''),i.total.toLocaleString('id-ID'))}`).join('')}<hr>
+ ${DESK&&dkOn('rcItems')?L('Jumlah item',itc(s)):''}${!DESK||dkOn('rcSub')?L('Subtotal',s.sub.toLocaleString('id-ID')):''}${s.disc?L('Diskon','-'+s.disc.toLocaleString('id-ID')):''}<b>${L('TOTAL',s.total.toLocaleString('id-ID'))}</b>${L(esc(s.method),s.paid.toLocaleString('id-ID'))}${!DESK||s.change>0?L('Kembali',s.change.toLocaleString('id-ID')):''}<hr><div class="c">${esc(st.foot)}</div></body></html>`}
 function browserPrint(s){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.appendChild(f);f.contentDocument.write(receiptHTML(s));f.contentDocument.close();setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),2000)},350)}
 async function printReceipt(s){if(D.printer){try{await sendBytes(await escpos(s));return}catch(e){if(D.printer&&D.printer.type==='rawbt')return toast('Printer RawBT gagal: '+e.message);toast('Printer gagal ('+e.message+'), pakai cetak browser');D.printer=null;devStatus()}}browserPrint(s)}
 /* ---- barang ---- */
@@ -983,16 +983,17 @@ $('#pr-conn').onclick=()=>{const t=$('#s-ptype').value;S.settings.pbaud=num($('#
 $('#pr-test').onclick=()=>printReceipt({id:0,date:Date.now(),cashier:S.settings.cashier,items:[{n:'BARANG CONTOH',u:'PCS',qty:2,price:5000,disc:0,total:10000}],sub:10000,disc:0,total:10000,paid:10000,change:0,method:'Tunai'});
 async function sendBytes(u){const p=D.printer;if(p.type==='rawbt')return sendRawBT(u);if(p.type==='serial'){const w=p.port.writable.getWriter();try{for(let i=0;i<u.length;i+=512)await w.write(u.slice(i,i+512))}finally{w.releaseLock()}}else for(let i=0;i<u.length;i+=1024)await p.dev.transferOut(p.ep,u.slice(i,i+1024))}
 const enc=t=>Uint8Array.from(String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]/g,'?'),c=>c.charCodeAt(0));
-function logoBytes(maxW){return new Promise(ok=>{const lg=S.settings.logo;if(!lg||!S.settings.printLogo)return ok(null);const im=new Image();im.onerror=()=>ok(null);im.onload=()=>{const sc=Math.min(maxW/im.width,240/im.height,1),w=Math.max(8,Math.floor(im.width*sc/8)*8);let h=Math.max(1,Math.round(im.height*sc));const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
+function logoBytes(maxW){return new Promise(ok=>{const lg=S.settings.logo;if(!lg||!S.settings.printLogo)return ok(null);const im=new Image();im.onerror=()=>ok(null);im.onload=()=>{const sc=Math.min(maxW/im.width,240/im.height,1);let w=Math.max(8,Math.floor(im.width*sc/8)*8),h=Math.max(1,Math.round(im.height*sc));let c=document.createElement('canvas');c.width=w;c.height=h;let x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
   if(DESK){const g=x.getImageData(0,0,w,h).data;let t=0,bm=h-1;const row=y=>{for(let xx=0;xx<w;xx++){const q=(y*w+xx)*4;if(g[q]*.3+g[q+1]*.59+g[q+2]*.11<140)return true}return false};while(t<bm&&!row(t))t++;while(bm>t&&!row(bm))bm--;const nh=bm-t+1;if(nh>0&&nh<h){const k=x.getImageData(0,t,w,nh);c.height=nh;x.putImageData(k,0,0);h=nh}}
+  if(DESK){const nh=Math.max(DKLN,h-2*DKLN);if(nh<h){const kk=nh/h,w2=Math.max(8,Math.floor(w*kk/8)*8),c2=document.createElement('canvas');c2.width=w2;c2.height=nh;const x2=c2.getContext('2d');x2.fillStyle='#fff';x2.fillRect(0,0,w2,nh);x2.drawImage(c,0,0,w,h,0,0,w2,nh);c=c2;x=x2;w=w2;h=nh}}
   const d=x.getImageData(0,0,w,h).data,bw=w/8,o=new Uint8Array(8+bw*h);o.set([29,118,48,0,bw&255,bw>>8,h&255,h>>8]);for(let y=0;y<h;y++)for(let b=0;b<bw;b++){let v=0;for(let k=0;k<8;k++){const q=(y*w+b*8+k)*4;if(d[q]*.3+d[q+1]*.59+d[q+2]*.11<140)v|=128>>k}o[8+y*bw+b]=v}ok(o)};im.src=lg})}
 async function escpos(s){const st=S.settings,W=st.paper==58?32:48,B=[],u=(...a)=>B.push(Uint8Array.from(a)),ln=x=>{B.push(enc(x||''));u(10)},f=n=>Math.round(n).toLocaleString('id-ID'),
  lr=(a,b)=>{a=String(a);b=String(b);if(a.length+b.length+1>W)a=a.slice(0,W-b.length-1);ln(a+' '.repeat(W-a.length-b.length)+b)},sep=()=>ln('-'.repeat(W));
  u(27,64);u(27,97,1);const lg=await logoBytes(W*12);if(lg){B.push(lg);if(DESK)u(27,74,10);else u(10)}
  u(27,69,1);ln(st.name);u(27,69,0);if(st.addr)ln(st.addr);if(st.tel)ln(st.tel);u(27,97,0);sep();
  lr('No: '+s.id,new Date(s.date).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}));lr('Kasir',s.cashier);sep();
- s.items.forEach((i,x)=>{if(x)for(let k=0;k<(+st.feed||0);k++)ln('');const n=String(i.n);for(let k=0;k<n.length;k+=W)ln(n.slice(k,k+W));lr((st.qpre?st.qpre+' ':'')+i.qty+' '+i.u+' x '+f(i.price)+(i.disc?' -'+i.disc+'%':''),f(i.total))});sep();
- if(DESK)lr('Jumlah item',itc(s));lr('Subtotal',f(s.sub));if(s.disc)lr('Diskon','-'+f(s.disc));u(27,69,1);lr('TOTAL',f(s.total));u(27,69,0);lr(s.method,f(s.paid));lr('Kembali',f(s.change));sep();u(27,97,1);if(!DESK||st.foot)ln(st.foot);u(27,97,0);if(DESK){if(!st.cut)u(10,10)}else u(10,10,10);if(st.cut)u(29,86,66,0);
+ s.items.forEach((i,x)=>{if(x){if(DESK){const g=dkGap();for(let k=0;k<Math.floor(g);k++)ln('');if(g%1)u(27,74,DKLN/2)}else for(let k=0;k<(+st.feed||0);k++)ln('')}const n=String(i.n);for(let k=0;k<n.length;k+=W)ln(n.slice(k,k+W));lr((st.qpre?st.qpre+' ':'')+i.qty+' '+i.u+' x '+f(i.price)+(i.disc?' -'+i.disc+'%':''),f(i.total))});sep();
+ if(DESK&&dkOn('rcItems'))lr('Jumlah item',itc(s));if(!DESK||dkOn('rcSub'))lr('Subtotal',f(s.sub));if(s.disc)lr('Diskon','-'+f(s.disc));u(27,69,1);lr('TOTAL',f(s.total));u(27,69,0);lr(s.method,f(s.paid));if(!DESK||s.change>0)lr('Kembali',f(s.change));sep();u(27,97,1);if(!DESK||st.foot)ln(st.foot);u(27,97,0);if(DESK){if(!st.cut)u(10)}else u(10,10,10);if(st.cut)u(29,86,66,0);
  const o=new Uint8Array(B.reduce((a,b)=>a+b.length,0));let p=0;B.forEach(b=>{o.set(b,p);p+=b.length});return o}
 
 /* ---- mode input: ketik / scan kamera, & fitur khusus APK ---- */
@@ -1219,7 +1220,18 @@ if(DESK){
  document.addEventListener('keydown',e=>{if(isPrt(e))e.preventDefault()});
  document.addEventListener('keyup',e=>{if(!isPrt(e))return;e.preventDefault();if(document.querySelector('dialog[open]'))return;show('kasir');pay()});
  {const b=$('#pay');if(b)b.textContent='BAYAR (PrtScn)'}
- try{TUT.forEach(t=>{t[2]=t[2].replace(/BAYAR \(F8\)/g,'BAYAR (PrtScn)').replace('<li><b>F8</b> – BAYAR</li>','<li><b>PrtScn</b> (Print Screen) – BAYAR</li>').replace('<li><b>Esc</b> – batalkan pengisian jumlah</li>','<li><b>Esc</b> – seperti tombol Back HP: batalkan pengisian jumlah, tutup popup / daftar cari, lalu kembali ke menu sebelumnya</li>')})}catch(e){}
+ try{TUT.forEach(t=>{t[2]=t[2].replace(/BAYAR \(F8\)/g,'BAYAR (PrtScn)').replace('<li><b>F8</b> – BAYAR</li>','<li><b>PrtScn</b> (Print Screen) – BAYAR</li>').replace('0–3 baris kosong.','0, ½, 1, 2, atau 3 baris kosong (opsi ½ khusus komputer). Di komputer ada juga kotak centang <b>Cetak Jumlah item</b> dan <b>Cetak Subtotal</b>; bila tidak dicentang, barisnya tidak muncul di struk cetak. Baris Kembali tidak dicetak bila kembalian 0.').replace('<li><b>Esc</b> – batalkan pengisian jumlah</li>','<li><b>Esc</b> – seperti tombol Back HP: batalkan pengisian jumlah, tutup popup / daftar cari, lalu kembali ke menu sebelumnya</li>')})}catch(e){}
+
+ /* ===== Pengaturan struk (PC saja): opsi 1/2 baris, kotak centang Jumlah item & Subtotal. Disimpan lokal (tidak ikut sinkron ke HP). ===== */
+ {const fs=$('#s-feed');if(fs){const o=document.createElement('option');o.value='0.5';o.textContent='½ baris kosong (setengah baris)';fs.insertBefore(o,fs.options[1]);
+  const host=fs.closest('.f>div'),mk=(id,t)=>{const d=document.createElement('div');d.innerHTML=`<label><input type="checkbox" id="${id}" style="width:auto" checked> ${t}</label>`;return d};
+  if(host)host.after(mk('s-rcitems','Cetak “Jumlah item” di struk'),mk('s-rcsub','Cetak “Subtotal” di struk'));
+  const _fsf=fillSetForm;fillSetForm=function(only){_fsf(only);try{const st=S.settings;$('#s-rcitems').checked=st.rcItems!==false;$('#s-rcsub').checked=st.rcSub!==false;if(st.feedH&&!(+st.feed>0))$('#s-feed').value='0.5'}catch(e){}};
+  const _ss=$('#ssave').onclick;$('#ssave').onclick=function(ev){
+   if(!/^\d{4}$/.test(String($('#s-pin').value)))return _ss.call(this,ev);
+   const half=$('#s-feed').value==='0.5';if(half)$('#s-feed').value='0';
+   S.settings.rcItems=$('#s-rcitems').checked;S.settings.rcSub=$('#s-rcsub').checked;S.settings.feedH=half;
+   return _ss.call(this,ev)}}}
 
  /* Snack eceran */
  const addSnk=()=>{show('kasir');addCart(SNK,1)};
@@ -1228,16 +1240,18 @@ if(DESK){
 }
 
 /* ===== PC: logo struk dipotong dari margin putih/transparan supaya tidak boros kertas ===== */
-const DKL={src:null,out:null};
-function dkLogoWarm(){const src=S.settings&&S.settings.logo;if(!src){DKL.src=null;DKL.out=null;return}if(DKL.src===src)return;DKL.src=src;DKL.out=null;
+const DKL={src:null,out:null,w:0,h:0},DKLN=32; /* DKLN = titik printer per baris (203 dpi, +/-4 mm) */
+function dkGap(){const st=S.settings,f=+st.feed||0;return f>0?f:(st.feedH?0.5:0)}
+function dkOn(k){return S.settings[k]!==false}
+function dkLogoWarm(){const src=S.settings&&S.settings.logo;if(!src){DKL.src=null;DKL.out=null;return}if(DKL.src===src)return;DKL.src=src;DKL.out=null;DKL.w=0;DKL.h=0;
  const im=new Image();im.onload=()=>{try{const sc=Math.min(1,900/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc)),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(im,0,0,w,h);const g=x.getImageData(0,0,w,h).data;
   const ink=(xx,y)=>{const q=(y*w+xx)*4;return g[q+3]>25&&Math.min(g[q],g[q+1],g[q+2])<240};
   let t=0,b=h-1,l=0,r=w-1;const rowHas=y=>{for(let xx=0;xx<w;xx++)if(ink(xx,y))return true;return false},colHas=xx=>{for(let y=t;y<=b;y++)if(ink(xx,y))return true;return false};
   while(t<b&&!rowHas(t))t++;while(b>t&&!rowHas(b))b--;while(l<r&&!colHas(l))l++;while(r>l&&!colHas(r))r--;
   const pad=2;t=Math.max(0,t-pad);b=Math.min(h-1,b+pad);l=Math.max(0,l-pad);r=Math.min(w-1,r+pad);const cw=r-l+1,ch=b-t+1;
-  if(cw<=0||ch<=0||(cw>=w&&ch>=h)){DKL.out=src;return}
+  if(cw<=0||ch<=0||(cw>=w&&ch>=h)){DKL.w=im.width;DKL.h=im.height;DKL.out=src;return}DKL.w=cw/sc;DKL.h=ch/sc;
   const o=document.createElement('canvas');o.width=cw;o.height=ch;const ox=o.getContext('2d');ox.fillStyle='#fff';ox.fillRect(0,0,cw,ch);ox.drawImage(c,l,t,cw,ch,0,0,cw,ch);DKL.out=o.toDataURL('image/png')}catch(e){DKL.out=src}};
- im.onerror=()=>{DKL.out=src};im.src=src}
+ im.onerror=()=>{DKL.out=src;DKL.w=0;DKL.h=0};im.src=src}
 
 init();
 </script></body></html>
