@@ -973,14 +973,13 @@ document.addEventListener('keydown',e=>{if(!$('#v-kasir').classList.contains('on
 $('#scantest').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#sc-res').textContent='Terbaca: '+e.target.value+' ('+e.target.value.length+' karakter)';e.target.value=''}};
 function devStatus(){$('#sc-st').textContent=D.scan?'Serial terhubung':'Mode keyboard aktif (tanpa pairing)';$('#pr-st').textContent=D.printer?'Terhubung ('+D.printer.type+')':'Belum terhubung – memakai dialog cetak browser'}
 async function openPort(role,port){await port.open({baudRate:num(S.settings[role==='scan'?'sbaud':'pbaud'])||9600});D[role]={type:'serial',port};devStatus();if(role==='scan')readLoop(port)}
-async function connSerial(role){if(!navigator.serial)return toast('Butuh Chrome/Edge (Web Serial)');try{try{window.posDesk&&posDesk.pickRole&&posDesk.pickRole(role==='printer'?'printer':'')}catch(e){}const p=await navigator.serial.requestPort();await openPort(role,p);S.settings[role+'Id']=p.getInfo();save('settings');toast('Terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
+async function connSerial(role){if(!navigator.serial)return toast('Butuh Chrome/Edge (Web Serial)');try{const p=await navigator.serial.requestPort();await openPort(role,p);S.settings[role+'Id']=p.getInfo();save('settings');toast('Terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
 async function readLoop(port){const dec=new TextDecoder();let b='';try{while(port.readable){const r=port.readable.getReader();try{for(;;){const{value,done}=await r.read();if(done)break;b+=dec.decode(value);let m;while((m=b.search(/[\r\n]/))>=0){const c=b.slice(0,m).trim();b=b.slice(m+1);if(c)scanCode(c)}}}finally{r.releaseLock()}}}catch(e){}D.scan=null;devStatus()}
-async function openUsb(d){await d.open();if(!d.configuration)await d.selectConfiguration(1);let ep;for(const i of d.configuration.interfaces){for(const a of i.alternates){const e=a.endpoints.find(x=>x.direction==='out'&&x.type==='bulk');if(e){await d.claimInterface(i.interfaceNumber);ep=e.endpointNumber;break}}if(ep)break}if(!ep)throw new Error('endpoint tidak ditemukan');D.printer={type:'usb',dev:d,ep};S.settings.printerUsb={v:d.vendorId,p:d.productId,s:d.serialNumber||''};save('settings');devStatus()}
-async function connUsb(){if(!navigator.usb)return toast('Butuh Chrome/Edge (WebUSB)');try{const d=await navigator.usb.requestDevice({filters:[]});await openUsb(d);toast('Printer terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
+async function connUsb(){if(!navigator.usb)return toast('Butuh Chrome/Edge (WebUSB)');try{const d=await navigator.usb.requestDevice({filters:[]});await d.open();if(!d.configuration)await d.selectConfiguration(1);let ep;for(const i of d.configuration.interfaces){for(const a of i.alternates){const e=a.endpoints.find(x=>x.direction==='out'&&x.type==='bulk');if(e){await d.claimInterface(i.interfaceNumber);ep=e.endpointNumber;break}}if(ep)break}if(!ep)throw new Error('endpoint tidak ditemukan');D.printer={type:'usb',dev:d,ep};devStatus();toast('Printer terhubung')}catch(e){if(e.name!=='NotFoundError')toast('Gagal: '+e.message)}}
 async function autoConnect(){if(isNative()){S.settings.printer='rawbt';D.printer={type:'rawbt'}};devStatus();if(!navigator.serial)return;try{for(const port of await navigator.serial.getPorts()){const i=port.getInfo();for(const r of['scan','printer']){const m=S.settings[r+'Id'];if(m&&m.usbVendorId&&!D[r]&&i.usbVendorId===m.usbVendorId&&i.usbProductId===m.usbProductId&&(r==='scan'||S.settings.printer==='serial')){await openPort(r,port);break}}}}catch(e){}}
 async function closeDev(role){const d=D[role];D[role]=null;try{if(d?.port)await d.port.close();if(d?.dev)await d.dev.close()}catch(e){}devStatus()}
 $('#sc-conn').onclick=()=>{S.settings.sbaud=num($('#s-sbaud').value);connSerial('scan')};$('#sc-off').onclick=()=>closeDev('scan');
-$('#pr-conn').onclick=()=>{const t=$('#s-ptype').value;S.settings.pbaud=num($('#s-pbaud').value);S.settings.printer=t;save('settings');t==='rawbt'?(D.printer={type:'rawbt'},devStatus(),toast('Mode RawBT aktif – coba Cetak tes')):t==='serial'?connSerial('printer'):t==='usb'?connUsb():toast('Mode driver Windows tidak perlu dihubungkan')};$('#pr-off').onclick=()=>{closeDev('printer');delete S.settings.printerId;delete S.settings.printerUsb;save('settings');try{window.posDesk&&posDesk.forgetPrinter&&posDesk.forgetPrinter()}catch(e){}toast('Printer dilepas. Tekan Hubungkan untuk memilih printer lagi')};
+$('#pr-conn').onclick=()=>{const t=$('#s-ptype').value;S.settings.pbaud=num($('#s-pbaud').value);S.settings.printer=t;save('settings');t==='rawbt'?(D.printer={type:'rawbt'},devStatus(),toast('Mode RawBT aktif – coba Cetak tes')):t==='serial'?connSerial('printer'):t==='usb'?connUsb():toast('Mode driver Windows tidak perlu dihubungkan')};$('#pr-off').onclick=()=>closeDev('printer');
 $('#pr-test').onclick=()=>printReceipt({id:0,date:Date.now(),cashier:S.settings.cashier,items:[{n:'BARANG CONTOH',u:'PCS',qty:2,price:5000,disc:0,total:10000}],sub:10000,disc:0,total:10000,paid:10000,change:0,method:'Tunai'});
 async function sendBytes(u){const p=D.printer;if(p.type==='rawbt')return sendRawBT(u);if(p.type==='serial'){const w=p.port.writable.getWriter();try{for(let i=0;i<u.length;i+=512)await w.write(u.slice(i,i+512))}finally{w.releaseLock()}}else for(let i=0;i<u.length;i+=1024)await p.dev.transferOut(p.ep,u.slice(i,i+1024))}
 const enc=t=>Uint8Array.from(String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]/g,'?'),c=>c.charCodeAt(0));
@@ -990,7 +989,7 @@ function logoBytes(maxW){return new Promise(ok=>{const lg=S.settings.logo;if(!lg
   const d=x.getImageData(0,0,w,h).data,bw=w/8,o=new Uint8Array(8+bw*h);o.set([29,118,48,0,bw&255,bw>>8,h&255,h>>8]);for(let y=0;y<h;y++)for(let b=0;b<bw;b++){let v=0;for(let k=0;k<8;k++){const q=(y*w+b*8+k)*4;if(d[q]*.3+d[q+1]*.59+d[q+2]*.11<140)v|=128>>k}o[8+y*bw+b]=v}ok(o)};im.src=lg})}
 async function escpos(s){const st=S.settings,W=st.paper==58?32:48,B=[],u=(...a)=>B.push(Uint8Array.from(a)),ln=x=>{B.push(enc(x||''));u(10)},f=n=>Math.round(n).toLocaleString('id-ID'),
  lr=(a,b)=>{a=String(a);b=String(b);if(a.length+b.length+1>W)a=a.slice(0,W-b.length-1);ln(a+' '.repeat(W-a.length-b.length)+b)},sep=()=>ln('-'.repeat(W));
- u(27,64);u(27,97,1);const lg=await logoBytes(W*12);if(lg){if(DESK&&DKTOPFEED>0)u(27,74,Math.min(255,DKTOPFEED));B.push(lg);if(DESK)u(27,74,10);else u(10)}
+ u(27,64);u(27,97,1);const lg=await logoBytes(W*12);if(lg){B.push(lg);if(DESK)u(27,74,10);else u(10)}
  u(27,69,1);ln(st.name);u(27,69,0);if(st.addr)ln(st.addr);if(st.tel)ln(st.tel);u(27,97,0);sep();
  lr('No: '+s.id,new Date(s.date).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}));lr('Kasir',s.cashier);sep();
  s.items.forEach((i,x)=>{if(x){if(DESK){const g=dkGap();for(let k=0;k<Math.floor(g);k++)ln('');if(g%1)u(27,74,DKLN/2)}else for(let k=0;k<(+st.feed||0);k++)ln('')}const n=String(i.n);for(let k=0;k<n.length;k+=W)ln(n.slice(k,k+W));lr((st.qpre?st.qpre+' ':'')+i.qty+' '+i.u+' x '+f(i.price)+(i.disc?' -'+i.disc+'%':''),f(i.total))});sep();
@@ -1241,7 +1240,7 @@ if(DESK){
 }
 
 /* ===== PC: logo struk dipotong dari margin putih/transparan supaya tidak boros kertas ===== */
-const DKL={src:null,out:null,w:0,h:0},DKLN=32,DKTOPFEED=0; /* DKLN = titik printer per baris (203 dpi, +/-4 mm). DKTOPFEED = feed kertas (titik) sebelum logo ESC/POS khusus EXE; 0 = tidak ada feed di atas logo */
+const DKL={src:null,out:null,w:0,h:0},DKLN=32; /* DKLN = titik printer per baris (203 dpi, +/-4 mm) */
 function dkGap(){const st=S.settings,f=+st.feed||0;return f>0?f:(st.feedH?0.5:0)}
 function dkOn(k){return S.settings[k]!==false}
 function dkLogoWarm(){const src=S.settings&&S.settings.logo;if(!src){DKL.src=null;DKL.out=null;return}if(DKL.src===src)return;DKL.src=src;DKL.out=null;DKL.w=0;DKL.h=0;
@@ -1253,22 +1252,6 @@ function dkLogoWarm(){const src=S.settings&&S.settings.logo;if(!src){DKL.src=nul
   if(cw<=0||ch<=0||(cw>=w&&ch>=h)){DKL.w=im.width;DKL.h=im.height;DKL.out=src;return}DKL.w=cw/sc;DKL.h=ch/sc;
   const o=document.createElement('canvas');o.width=cw;o.height=ch;const ox=o.getContext('2d');ox.fillStyle='#fff';ox.fillRect(0,0,cw,ch);ox.drawImage(c,l,t,cw,ch,0,0,cw,ch);DKL.out=o.toDataURL('image/png')}catch(e){DKL.out=src}};
  im.onerror=()=>{DKL.out=src;DKL.w=0;DKL.h=0};im.src=src}
-
-/* ===== Printer langsung (EXE): sambung otomatis & terkunci =====
-   Printer yang pernah dipilih diingat (USB: ID perangkat; COM/Bluetooth: kunci di proses utama Electron),
-   jadi saat aplikasi dibuka / di-update tidak perlu memilih lagi. Bila printer baru menyala, dicoba lagi tiap 8 detik.
-   Tidak berlaku di APK (jalur RawBT tidak disentuh). */
-{
- const _ac=autoConnect;let busy=false;
- window.__prAuto=async()=>{if(D.printer||S.settings.printer!=='serial'||!navigator.serial)return false;try{window.posDesk&&posDesk.pickRole&&posDesk.pickRole('printer-auto');const p=await navigator.serial.requestPort();await openPort('printer',p);S.settings.printerId=p.getInfo();save('settings');return true}catch(e){return false}};
- async function autoUsb(){const m=S.settings.printerUsb;if(!m||!navigator.usb)return;for(const d of await navigator.usb.getDevices()){if(d.vendorId===m.v&&d.productId===m.p&&(d.serialNumber||'')===(m.s||'')){try{await openUsb(d)}catch(e){}return}}}
- autoConnect=async function(){if(isNative())return _ac();if(busy)return;busy=true;try{await _ac();if(!D.printer){const t=S.settings.printer;if(t==='usb')await autoUsb();else if(t==='serial'&&window.posDesk&&posDesk.autoPrinter)await posDesk.autoPrinter()}}catch(e){}finally{busy=false}};
- if(!isNative()){
-  setInterval(()=>{if(!D.printer&&(S.settings.printer==='serial'||S.settings.printer==='usb'))autoConnect()},8000);
-  try{if(navigator.serial){navigator.serial.addEventListener('connect',()=>autoConnect());navigator.serial.addEventListener('disconnect',e=>{if(D.printer&&D.printer.port===e.target){D.printer=null;devStatus()}})}}catch(e){}
-  try{if(navigator.usb){navigator.usb.addEventListener('connect',()=>autoConnect());navigator.usb.addEventListener('disconnect',e=>{if(D.printer&&D.printer.dev===e.device){D.printer=null;devStatus()}})}}catch(e){}
- }
-}
 
 init();
 </script></body></html>
