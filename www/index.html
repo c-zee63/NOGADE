@@ -986,11 +986,11 @@ async function sendBytes(u){const p=D.printer;if(p.type==='rawbt')return sendRaw
 const enc=t=>Uint8Array.from(String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]/g,'?'),c=>c.charCodeAt(0));
 function logoBytes(maxW){return new Promise(ok=>{const lg=S.settings.logo;if(!lg||!S.settings.printLogo)return ok(null);const im=new Image();im.onerror=()=>ok(null);im.onload=()=>{const sc=Math.min(maxW/im.width,240/im.height,1);let w=Math.max(8,Math.floor(im.width*sc/8)*8),h=Math.max(1,Math.round(im.height*sc));let c=document.createElement('canvas');c.width=w;c.height=h;let x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
   if(DESK){const g=x.getImageData(0,0,w,h).data;let t=0,bm=h-1;const row=y=>{for(let xx=0;xx<w;xx++){const q=(y*w+xx)*4;if(g[q]*.3+g[q+1]*.59+g[q+2]*.11<140)return true}return false};while(t<bm&&!row(t))t++;while(bm>t&&!row(bm))bm--;const nh=bm-t+1;if(nh>0&&nh<h){const k=x.getImageData(0,t,w,nh);c.height=nh;x.putImageData(k,0,0);h=nh}}
-  if(DESK){let nh=DKLH,kk=nh/h;if(w*kk>maxW){kk=maxW/w;nh=Math.max(1,Math.round(h*kk))}const w2=Math.max(8,Math.floor(w*kk/8)*8);if(nh!==h||w2!==w){const c2=document.createElement('canvas');c2.width=w2;c2.height=nh;const x2=c2.getContext('2d');x2.fillStyle='#fff';x2.fillRect(0,0,w2,nh);x2.drawImage(c,0,0,w,h,0,0,w2,nh);c=c2;x=x2;w=w2;h=nh}}
+  if(DESK){const nh=Math.max(DKLN,h-2*DKLN);if(nh<h){const kk=nh/h,w2=Math.max(8,Math.floor(w*kk/8)*8),c2=document.createElement('canvas');c2.width=w2;c2.height=nh;const x2=c2.getContext('2d');x2.fillStyle='#fff';x2.fillRect(0,0,w2,nh);x2.drawImage(c,0,0,w,h,0,0,w2,nh);c=c2;x=x2;w=w2;h=nh}}
   const d=x.getImageData(0,0,w,h).data,bw=w/8,o=new Uint8Array(8+bw*h);o.set([29,118,48,0,bw&255,bw>>8,h&255,h>>8]);for(let y=0;y<h;y++)for(let b=0;b<bw;b++){let v=0;for(let k=0;k<8;k++){const q=(y*w+b*8+k)*4;if(d[q]*.3+d[q+1]*.59+d[q+2]*.11<140)v|=128>>k}o[8+y*bw+b]=v}ok(o)};im.src=lg})}
 async function escpos(s){const st=S.settings,W=st.paper==58?32:48,B=[],u=(...a)=>B.push(Uint8Array.from(a)),ln=x=>{B.push(enc(x||''));u(10)},f=n=>Math.round(n).toLocaleString('id-ID'),
  lr=(a,b)=>{a=String(a);b=String(b);if(a.length+b.length+1>W)a=a.slice(0,W-b.length-1);ln(a+' '.repeat(W-a.length-b.length)+b)},sep=()=>ln('-'.repeat(W));
- u(27,64);u(27,97,1);const lg=await logoBytes(W*12);if(lg){B.push(lg);if(DESK)u(27,74,10);else u(10)}
+ u(27,64);u(27,97,1);const lg=await logoBytes(W*12);if(lg){if(DESK&&DKTOPFEED>0)u(27,74,Math.min(255,DKTOPFEED));B.push(lg);if(DESK)u(27,74,10);else u(10)}
  u(27,69,1);ln(st.name);u(27,69,0);if(st.addr)ln(st.addr);if(st.tel)ln(st.tel);u(27,97,0);sep();
  lr('No: '+s.id,new Date(s.date).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}));lr('Kasir',s.cashier);sep();
  s.items.forEach((i,x)=>{if(x){if(DESK){const g=dkGap();for(let k=0;k<Math.floor(g);k++)ln('');if(g%1)u(27,74,DKLN/2)}else for(let k=0;k<(+st.feed||0);k++)ln('')}const n=String(i.n);for(let k=0;k<n.length;k+=W)ln(n.slice(k,k+W));lr((st.qpre?st.qpre+' ':'')+i.qty+' '+i.u+' x '+f(i.price)+(i.disc?' -'+i.disc+'%':''),f(i.total))});sep();
@@ -1241,7 +1241,7 @@ if(DESK){
 }
 
 /* ===== PC: logo struk dipotong dari margin putih/transparan supaya tidak boros kertas ===== */
-const DKL={src:null,out:null,w:0,h:0},DKLN=32,DKLH=128; /* DKLN = titik printer per baris (203 dpi, +/-4 mm). DKLH = tinggi cetak logo ESC/POS khusus EXE, dalam titik (dulu 64, kini 128) */
+const DKL={src:null,out:null,w:0,h:0},DKLN=32,DKTOPFEED=0; /* DKLN = titik printer per baris (203 dpi, +/-4 mm). DKTOPFEED = feed kertas (titik) sebelum logo ESC/POS khusus EXE; 0 = tidak ada feed di atas logo */
 function dkGap(){const st=S.settings,f=+st.feed||0;return f>0?f:(st.feedH?0.5:0)}
 function dkOn(k){return S.settings[k]!==false}
 function dkLogoWarm(){const src=S.settings&&S.settings.logo;if(!src){DKL.src=null;DKL.out=null;return}if(DKL.src===src)return;DKL.src=src;DKL.out=null;DKL.w=0;DKL.h=0;
