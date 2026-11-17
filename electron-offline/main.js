@@ -48,12 +48,43 @@ async function pilih(win, judul, pesan, items) {
     return r.response < list.length ? list[r.response].id : '';
   } finally { chooserBusy = false; }
 }
+// ===== Kunci printer =====
+// Printer yang sudah dipilih diingat di Data Aplikasi (userData/printer-lock.json), jadi saat aplikasi dibuka lagi
+// atau setelah update/timpa, printer tersambung otomatis tanpa dialog pilih lagi. "Putuskan" di Pengaturan melepas kunci.
+const lockFile = () => path.join(app.getPath('userData'), 'printer-lock.json');
+let lock = null;
+const getLock = () => {
+  if (lock) return lock;
+  try { lock = JSON.parse(fs.readFileSync(lockFile(), 'utf8')) || {}; } catch (e) { lock = {}; }
+  return lock;
+};
+const saveLock = () => { try { fs.writeFileSync(lockFile(), JSON.stringify(getLock()), 'utf8'); } catch (e) {} };
+let pickRole = ''; // '' = scanner/lainnya (dialog seperti biasa), 'printer' = klik Hubungkan, 'printer-auto' = sambung otomatis (tanpa dialog)
+ipcMain.on('pr:role', (e, r) => { pickRole = (r === 'printer' || r === 'printer-auto') ? r : ''; e.returnValue = true; });
+ipcMain.on('pr:forget', (e) => { lock = {}; saveLock(); e.returnValue = true; });
+ipcMain.handle('pr:auto', async (e) => {
+  if (!getLock().serial) return false;
+  try { return !!(await e.sender.executeJavaScript('window.__prAuto?window.__prAuto():false', true)); } catch (x) { return false; }
+});
+const sameSerial = (l, p) => {
+  if (l.deviceInstanceId && p.deviceInstanceId) return l.deviceInstanceId === p.deviceInstanceId;
+  if (l.vendorId && p.vendorId) return l.vendorId === p.vendorId && l.productId === p.productId && (l.serialNumber || '') === (p.serialNumber || '');
+  return !!l.portName && l.portName === p.portName;
+};
+const sameUsb = (l, d) => l.vendorId === d.vendorId && l.productId === d.productId && (l.serialNumber || '') === (d.serialNumber || '');
+
 function setupDevices(win) {
   const ses = win.webContents.session;
   ses.setPermissionCheckHandler(() => true);
   ses.setDevicePermissionHandler((d) => d.deviceType === 'serial' || d.deviceType === 'usb');
   ses.on('select-serial-port', async (event, portList, _wc, callback) => {
     event.preventDefault();
+    const role = pickRole; pickRole = '';
+    if (role.indexOf('printer') === 0 && getLock().serial) {
+      const m = portList.find((p) => sameSerial(getLock().serial, p));
+      if (m) return callback(m.portId);
+    }
+    if (role === 'printer-auto') return callback(''); // sambung otomatis: printer belum siap, jangan tampilkan dialog
     if (!portList.length) {
       await dialog.showMessageBox(win, {
         type: 'info', title: 'Port serial tidak ditemukan', message: 'Tidak ada port serial/COM yang terdeteksi.',
@@ -63,17 +94,29 @@ function setupDevices(win) {
     }
     const id = await pilih(win, 'Pilih port serial / COM', 'Pilih port printer (atau scanner) yang akan dihubungkan:',
       portList.map((p) => ({ id: p.portId, label: (p.displayName || p.portName) + '  [' + p.portName + (p.vendorId ? ', VID ' + hex(p.vendorId) + ':' + hex(p.productId) : '') + ']' })));
+    if (id && role === 'printer') {
+      const p = portList.find((x) => x.portId === id);
+      if (p) { getLock().serial = { portName: p.portName, displayName: p.displayName, vendorId: p.vendorId, productId: p.productId, serialNumber: p.serialNumber, deviceInstanceId: p.deviceInstanceId }; saveLock(); }
+    }
     callback(id);
   });
   ses.on('select-usb-device', async (event, details, callback) => {
     event.preventDefault();
     const dl = details.deviceList || [];
+    if (getLock().usb) {
+      const m = dl.find((d) => sameUsb(getLock().usb, d));
+      if (m) return callback(m.deviceId);
+    }
     if (!dl.length) {
       await dialog.showMessageBox(win, { type: 'info', title: 'Perangkat USB tidak ditemukan', message: 'Tidak ada perangkat USB yang bisa dipilih.', detail: 'Pastikan printer menyala dan kabel USB terpasang, lalu coba lagi.' });
       return callback();
     }
     const id = await pilih(win, 'Pilih printer USB', 'Pilih perangkat USB printer struk:',
       dl.map((d) => ({ id: d.deviceId, label: (d.productName || 'Perangkat USB') + (d.manufacturerName ? ' - ' + d.manufacturerName : '') + '  [' + hex(d.vendorId) + ':' + hex(d.productId) + ']' })));
+    if (id) {
+      const d = dl.find((x) => x.deviceId === id);
+      if (d) { getLock().usb = { vendorId: d.vendorId, productId: d.productId, serialNumber: d.serialNumber || '' }; saveLock(); }
+    }
     id ? callback(id) : callback();
   });
 }
