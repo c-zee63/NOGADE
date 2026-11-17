@@ -140,17 +140,29 @@ html.desk dialog{max-width:980px;width:96%;padding:22px}
 html.desk dialog h3{font-size:22px}
 html.desk #toast{font-size:17px;padding:12px 22px}
 html.desk td button{padding:7px 14px}
+/* layar laptop yang lebih sempit: header dirapatkan agar tidak turun ke dua baris */
+@media(max-width:1600px){html.desk header{gap:10px;padding:8px 14px}html.desk header b#hn{font-size:26px}html.desk nav button{font-size:15px;padding:8px 12px}html.desk #mode{font-size:14px;padding:8px 10px}html.desk #mq{max-width:200px}html.desk .g{grid-template-columns:1fr 420px}}
+/* tampilan pas layar (maximize): scrollbar disembunyikan; keranjang menggulung di dalam kartunya */
+html.desk *{scrollbar-width:none}
+html.desk ::-webkit-scrollbar{width:0;height:0;display:none}
+html.desk #v-kasir .g{height:calc(100vh - var(--hh,66px) - 36px);grid-template-rows:minmax(0,1fr);align-items:stretch}
+html.desk #v-kasir .g>.card{margin-bottom:0;overflow-y:auto}
+html.desk #v-kasir .g>.card:first-child{display:flex;flex-direction:column;overflow:visible}
+html.desk #ctw{flex:1;min-height:0;overflow-y:auto}
+html.desk #ct{margin-top:6px!important}
+html.desk #ct thead th{position:sticky;top:0;background:var(--c);z-index:1}
 /* Kasir */
 html.desk #res{max-height:460px}
 html.desk #res div,html.desk #sres div{padding:12px 14px;font-size:18px}
 html.desk #res div>b,html.desk #sres div>b{min-width:120px}
 html.desk #sres{max-height:420px}
-html.desk #cart td.cn{font-size:19px;font-weight:600}
-html.desk #cart td.r{font-size:18px}
-html.desk #cart input{font-size:18px}
-html.desk #cart input.sm{width:110px}
-html.desk #cart input[data-f=pp],html.desk #cart input[data-f=st]{width:150px!important;text-align:right}
-html.desk #cart td.cn input.cname{width:100%;font-size:19px;font-weight:600}
+html.desk #cart td,html.desk #ct th{padding:8px 6px}
+html.desk #cart td.cn{font-size:17px;font-weight:600}
+html.desk #cart td.r{font-size:16px;white-space:nowrap}
+html.desk #cart input{font-size:16px;padding:7px 8px}
+html.desk #cart input.sm{width:72px}
+html.desk #cart input[data-f=pp],html.desk #cart input[data-f=st]{width:115px!important;text-align:right}
+html.desk #cart td.cn input.cname{width:100%;font-size:17px;font-weight:600}
 html.desk #ct th{font-size:15px}
 html.desk #paid{width:220px!important;font-size:24px;text-align:right}
 html.desk #pay{padding:16px!important;font-size:20px!important}
@@ -184,7 +196,7 @@ html.desk #dg input[data-k]{font-size:18px}
 <section id="v-tut"><div class="card"><h3 style="margin-top:0">📖 Tutorial penggunaan aplikasi</h3><p class="m" style="margin:0 0 8px">Ketuk judul untuk membuka penjelasan langkah demi langkah. Tanda <span class="bd">Semua</span> = bisa dipakai kasir &amp; owner, <span class="bd o">Owner</span> = khusus mode Owner. Tombol bulat <b>?</b> (Help) di header paling kanan membuka halaman ini kapan saja.</p><div class="bar"><input id="tsr" placeholder="Cari tutorial… (contoh: barcode, void, printer)" style="flex:1"><button id="tall">Buka semua</button><button id="tnone">Tutup semua</button></div><div id="tlist"></div></div></section>
 <section id="v-kasir"><div class="g"><div class="card" style="position:relative">
 <div class="bar" id="qbar" style="flex-wrap:wrap;margin:0;align-items:flex-end"><div id="qgrp" style="display:flex;gap:6px;align-items:flex-end"><div style="width:100px"><label class="m" style="font-size:12px" id="ql">Jumlah (F3)</label><input id="qq" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="Qty" style="width:100%;font-size:16px"></div><button class="p" id="qadd" style="height:38px;font-size:16px">Masuk</button><button id="ppay" class="hpay" type="button" aria-label="Bayar" title="Total belanja – ketuk untuk langsung ke kolom pembayaran"><b>TOTAL</b><span class="hpt hptot">0</span></button></div><div style="flex:1;min-width:170px"><label class="m" style="font-size:12px" id="qlab">Cari produk (F2) – ketik kode atau nama</label><input id="q" enterkeyhint="go" style="width:100%;font-size:16px" autocomplete="off"><button class="p" id="scanbtn" style="display:none;width:100%;height:38px;font-size:16px">📷 Tekan untuk scan barcode</button></div><div style="display:flex;gap:4px;align-items:center"><div id="pmwrap" style="display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.15"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--t);margin:0" title="Harga tetap harga satuan walau qty mencapai harga bertingkat"><input type="checkbox" id="pm-nor" style="width:auto;padding:0;margin:0"> Normal</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--t);margin:0" title="Harga otomatis ikut harga bertingkat sesuai qty"><input type="checkbox" id="pm-qty" style="width:auto;padding:0;margin:0"> Grosir</label></div><div id="smwrap" style="display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:1.15"><label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--t);margin:0" title="Quick: hasil scan langsung masuk keranjang (jumlah 1, scan lagi = +1)"><input type="checkbox" id="sm-quick" style="width:auto;padding:0;margin:0"> Quick</label><label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--t);margin:0" title="Slow: setelah scan, isi jumlah dulu baru masuk keranjang"><input type="checkbox" id="sm-slow" style="width:auto;padding:0;margin:0"> Slow</label></div><button id="m-type" title="Ketik / cari nama" aria-label="Ketik">⌨️</button><button id="m-scan" title="Scan barcode dengan kamera" aria-label="Scan barcode">📷</button></div></div><div id="qinfo" class="low" style="display:none;margin-top:8px;color:var(--a)"></div><div id="res" hidden></div>
-<table id="ct" style="margin-top:10px"><thead><tr><th>Barang</th><th>Qty</th><th class="r">Harga</th><th class="r">Subtotal</th><th class="r" id="thl">Laba</th><th class="r"><button id="snkbtn" type="button" aria-label="Snack eceran" title="Snack eceran (F4) – harga diisi sendiri, tidak dihitung laba">🍿</button></th></tr></thead><tbody id="cart"></tbody></table></div>
+<div id="ctw"><table id="ct" style="margin-top:10px"><thead><tr><th>Barang</th><th>Qty</th><th class="r">Harga</th><th class="r">Subtotal</th><th class="r" id="thl">Laba</th><th class="r"><button id="snkbtn" type="button" aria-label="Snack eceran" title="Snack eceran (F4) – harga diisi sendiri, tidak dihitung laba">🍿</button></th></tr></thead><tbody id="cart"></tbody></table></div></div>
 <div class="card"><div class="row"><span>Subtotal</span><b id="tsub"></b></div>
 <div class="row" id="drow"><span>Diskon (Rp)</span><input id="dtot" type="number" min="0" value="0" style="width:120px"></div>
 <div class="row" id="rowl"><span>Perkiraan laba</span><b id="tlaba"></b></div><div class="row"><span>Jumlah item</span><b id="tcnt"></b></div><div class="tot" id="ttot">Rp 0</div>
@@ -543,7 +555,7 @@ $('#q').onkeydown=e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefaul
  if(!isEnter(e))return;e.preventDefault();let v=e.target.value,n=null;const m=v.match(/^(\d+(?:[.,]\d+)?)\*(.+)$/);if(m){n=num(m[1]);v=m[2]}
  if(!m&&S.settings.smode==='quick'&&nz(v)&&byCode(v).length){e.target.value='';hideRes();scanCode(v);return}const r=m?find(v):(cur.length?cur:find(v)),p=r[r===cur&&ai>=0?ai:0];if(!p)return toast('Barang tidak ditemukan');addCart(p,n)};
 function renderCart(){const sl=showL();$('#thl').style.display=sl?'':'none';
- $('#cart').innerHTML=cart.map((c,i)=>{const p=P(c.id);return`<tr${p.snk?' class="snk"':''}><td class="cn"${DESK&&(owner||p.snk)?' title="Klik 2x untuk mengganti nama di struk"':''}>${esc(c.nm||p.n)}<small>${p.snk?'Tanpa laba · stok tidak dipotong · harga diisi sendiri':ubdg(p.u)+' · stok '+p.st+(c.pp!=null?' · harga diubah':(S.settings.pmode!=='normal'&&unit(c)!==p.h1?' · harga bertingkat':''))}${c.nm?' · nama struk diubah':''}</small>${below(c)?'<small class="low">Di bawah modal – tidak bisa dijual</small>':''}</td><td data-l="Qty"><input class="sm" type="number" min="0" step="any" value="${c.qty}" data-i="${i}" data-f="qty"></td><td class="r" data-l="Harga">${(owner||p.snk)?`<input class="sm" style="width:95px${below(c)?';color:#dc2626;border-color:#dc2626;font-weight:700':''}" type="number" min="0" value="${Math.round(unit(c))}" data-i="${i}" data-f="pp" title="Ubah harga (mode Owner)">`:rp(unit(c))}</td><td class="r" data-l="Subtotal">${DESK&&(owner||p.snk)?`<input class="sm" type="text" inputmode="numeric" autocomplete="off" style="width:130px${below(c)?';color:#dc2626;border-color:#dc2626;font-weight:700':''}" value="${line(c)}" data-i="${i}" data-f="st" title="Ubah subtotal item – harga satuan ikut menyesuaikan" onfocus="this.select()">`:rp(line(c))}</td>${sl?`<td data-l="Laba" class="r ${lab(c)<0?'low':'pos'}">${rp(lab(c))}</td>`:''}<td class="cx"><button class="d" data-del="${i}">✕</button></td></tr>`}).join('')||'<tr><td colspan="6" class="m">Keranjang kosong – scan atau cari barang, bisa banyak item dalam satu transaksi.</td></tr>';calc()}
+ $('#cart').innerHTML=cart.map((c,i)=>{const p=P(c.id);return`<tr${p.snk?' class="snk"':''}><td class="cn"${DESK&&(owner||p.snk)?' title="Klik 2x untuk mengganti nama di struk"':''}>${esc(c.nm||p.n)}<small>${p.snk?'Tanpa laba · stok tidak dipotong · harga diisi sendiri':ubdg(p.u)+' · stok '+p.st+(c.pp!=null?' · harga diubah':(S.settings.pmode!=='normal'&&unit(c)!==p.h1?' · harga bertingkat':''))}${c.nm?' · nama struk diubah':''}</small>${below(c)?'<small class="low">Di bawah modal – tidak bisa dijual</small>':''}</td><td data-l="Qty"><input class="sm" type="number" min="0" step="any" value="${c.qty}" data-i="${i}" data-f="qty"></td><td class="r" data-l="Harga">${(owner||p.snk)?`<input class="sm" style="width:95px${below(c)?';color:#dc2626;border-color:#dc2626;font-weight:700':''}" type="number" min="0" value="${Math.round(unit(c))}" data-i="${i}" data-f="pp" title="Ubah harga (mode Owner)">`:rp(unit(c))}</td><td class="r" data-l="Subtotal">${DESK&&(owner||p.snk)?`<input class="sm" type="text" inputmode="numeric" autocomplete="off" style="width:115px${below(c)?';color:#dc2626;border-color:#dc2626;font-weight:700':''}" value="${line(c)}" data-i="${i}" data-f="st" title="Ubah subtotal item – harga satuan ikut menyesuaikan" onfocus="this.select()">`:rp(line(c))}</td>${sl?`<td data-l="Laba" class="r ${lab(c)<0?'low':'pos'}">${rp(lab(c))}</td>`:''}<td class="cx"><button class="d" data-del="${i}">✕</button></td></tr>`}).join('')||'<tr><td colspan="6" class="m">Keranjang kosong – scan atau cari barang, bisa banyak item dalam satu transaksi.</td></tr>';calc()}
 $('#cart').onchange=e=>{const i=e.target.dataset.i;if(i===undefined)return;const c=cart[i],f=e.target.dataset.f,v=Math.max(0,num(e.target.value));
  if(f==='qty'){c.qty=v;if(!v)cart.splice(i,1)}else if(f==='st'){if(DESK&&(owner||P(c.id).snk)){const q=c.qty||1,d=1-(c.disc||0)/100;c.pp=d>0?v/q/d:0;if(below(c))toast('Harga di bawah modal ('+rp(P(c.id).hb)+') – tidak bisa dijual')}}else if(owner||(DESK&&P(c.id).snk)){if(f==='pp')c.pp=e.target.value===''?null:v;else c.disc=Math.min(100,v);if(below(c))toast('Harga di bawah modal ('+rp(P(c.id).hb)+') – tidak bisa dijual')}
  renderCart()};
@@ -618,10 +630,11 @@ function pay(){if(!cart.length)return toast('Keranjang kosong');if(DESK&&cart.so
 function changeDlg(s,after){const d=$('#dg');d.dataset.k='ch';d.onclose=()=>{delete d.dataset.k;d.onclose=null;if(after)after();else if($('#v-kasir').classList.contains('on'))setTimeout(()=>$('#q').focus(),0)};
  d.innerHTML=`<div style="text-align:center"><h3 style="margin:0 0 6px">Transaksi #${s.id} berhasil</h3><div class="m">Kembalian</div><div style="font-size:44px;font-weight:800;line-height:1.2;color:${s.change>0?'#16a34a':'inherit'}">${s.change>0?rp(s.change):'Uang pas'}</div><p class="m" style="margin:6px 0 14px">Total ${rp(s.total)} · Dibayar ${rp(s.paid)}</p><button class="p" id="chok" style="width:100%;padding:12px;font-size:16px">OK</button></div>`;
  $('#chok').onclick=()=>d.close();d.showModal();$('#chok').focus()}
+function itc(s){const q=+(s.items||[]).reduce((a,i)=>a+(+i.qty||0),0).toFixed(2);return (s.items||[]).length+' jenis, '+q+' pcs'}
 function receiptHTML(s){const st=S.settings,w=st.paper==58?'48mm':'72mm',L=(a,b)=>`<div style="display:flex;justify-content:space-between;gap:6px"><span>${a}</span><span>${b}</span></div>`;
  return`<html><head><meta charset="utf-8"><style>@page{margin:0}body{font:12px monospace;width:${w};margin:2mm auto;color:#000}.c{text-align:center}hr{border:0;border-top:1px dashed #000}img{max-width:80%;max-height:22mm;filter:grayscale(1) contrast(1.4)}</style></head><body><div class="c">${st.logo?`<img src="${st.logo}"><br>`:''}<b style="font-size:14px">${esc(st.name)}</b><br>${esc(st.addr)}<br>${esc(st.tel)}</div><hr>
  ${L('No: '+s.id,dstr(s.date))}${L('Kasir',esc(s.cashier))}<hr>${s.items.map((i,x)=>`<div style="margin-top:${x?(+st.feed||0)*1.3:0}em">${esc(i.n)}</div>${L((st.qpre?esc(st.qpre)+' ':'')+i.qty+' '+esc(i.u)+' x '+Math.round(i.price).toLocaleString('id-ID')+(i.disc?' -'+i.disc+'%':''),i.total.toLocaleString('id-ID'))}`).join('')}<hr>
- ${L('Subtotal',s.sub.toLocaleString('id-ID'))}${s.disc?L('Diskon','-'+s.disc.toLocaleString('id-ID')):''}<b>${L('TOTAL',s.total.toLocaleString('id-ID'))}</b>${L(esc(s.method),s.paid.toLocaleString('id-ID'))}${L('Kembali',s.change.toLocaleString('id-ID'))}<hr><div class="c">${esc(st.foot)}</div></body></html>`}
+ ${DESK?L('Jumlah item',itc(s)):''}${L('Subtotal',s.sub.toLocaleString('id-ID'))}${s.disc?L('Diskon','-'+s.disc.toLocaleString('id-ID')):''}<b>${L('TOTAL',s.total.toLocaleString('id-ID'))}</b>${L(esc(s.method),s.paid.toLocaleString('id-ID'))}${L('Kembali',s.change.toLocaleString('id-ID'))}<hr><div class="c">${esc(st.foot)}</div></body></html>`}
 function browserPrint(s){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.appendChild(f);f.contentDocument.write(receiptHTML(s));f.contentDocument.close();setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),2000)},350)}
 async function printReceipt(s){if(D.printer){try{await sendBytes(await escpos(s));return}catch(e){if(D.printer&&D.printer.type==='rawbt')return toast('Printer RawBT gagal: '+e.message);toast('Printer gagal ('+e.message+'), pakai cetak browser');D.printer=null;devStatus()}}browserPrint(s)}
 /* ---- barang ---- */
@@ -803,7 +816,7 @@ const rpf=n=>Math.round(n||0).toLocaleString('id-ID');
 function receiptText(s){const st=S.settings,L=['*'+st.name+'*'];if(st.addr)L.push(st.addr);if(st.tel)L.push('Telp: '+st.tel);
  L.push('','No: #'+s.id,dstr(sdt(s)),'Kasir: '+s.cashier,'------------------------');
  (s.items||[]).forEach(i=>{L.push(i.n);L.push('  '+i.qty+' '+i.u+' x '+rpf(i.price)+(i.disc?' (-'+i.disc+'%)':'')+' = Rp '+rpf(i.total))});
- L.push('------------------------','Subtotal: Rp '+rpf(s.sub));if(s.disc)L.push('Diskon: -Rp '+rpf(s.disc));
+ L.push('------------------------');if(DESK)L.push('Jumlah item: '+itc(s));L.push('Subtotal: Rp '+rpf(s.sub));if(s.disc)L.push('Diskon: -Rp '+rpf(s.disc));
  L.push('*TOTAL: Rp '+rpf(s.total)+'*',s.method+': Rp '+rpf(s.paid));if(s.change)L.push('Kembali: Rp '+rpf(s.change));
  if(s.void)L.push('','** TRANSAKSI INI DI-VOID **');if(st.foot)L.push('',st.foot);return L.join('\n')}
 const loadImg=src=>new Promise(ok=>{if(!src)return ok(null);const im=new Image();im.onload=()=>ok(im);im.onerror=()=>ok(null);im.src=src});
@@ -824,7 +837,7 @@ function drawReceipt(c,s,lg,hh){const st=S.settings,W=640,P=32,acc=st.accent||'#
  lr('No. Transaksi','#'+s.id);lr('Waktu',dstr(sdt(s)));lr('Kasir',s.cashier||'-');y+=2;dash();
  (s.items||[]).forEach((i,n)=>{font(17,'600');c.fillStyle=ink;c.textAlign='left';wrap((n+1)+'. '+i.n,W-2*P).forEach(t=>{c.fillText(t,P,y);y+=23});
   lr(i.qty+' '+i.u+' x '+rpf(i.price)+(i.disc?'  (diskon '+i.disc+'%)':''),'Rp '+rpf(i.total),{z:15,h:30})});
- dash();lr('Subtotal','Rp '+rpf(s.sub),{z:16});if(s.disc)lr('Diskon','- Rp '+rpf(s.disc),{z:16,rc:'#b91c1c'});y+=4;
+ dash();if(DESK)lr('Jumlah item',itc(s),{z:16});lr('Subtotal','Rp '+rpf(s.sub),{z:16});if(s.disc)lr('Diskon','- Rp '+rpf(s.disc),{z:16,rc:'#b91c1c'});y+=4;
  c.save();c.globalAlpha=.12;c.fillStyle=acc;c.fillRect(P-10,y-24,W-2*P+20,50);c.restore();
  font(20,'700');c.fillStyle=acc;c.textAlign='left';c.fillText('TOTAL',P,y+8);font(26,'700');c.textAlign='right';c.fillText('Rp '+rpf(s.total),W-P,y+9);y+=48;
  lr('Metode ('+(s.method||'-')+')','Rp '+rpf(s.paid),{z:16});if(s.method==='Tunai'||s.change)lr('Kembali','Rp '+rpf(s.change),{z:16});
@@ -976,7 +989,7 @@ async function escpos(s){const st=S.settings,W=st.paper==58?32:48,B=[],u=(...a)=
  u(27,69,1);ln(st.name);u(27,69,0);if(st.addr)ln(st.addr);if(st.tel)ln(st.tel);u(27,97,0);sep();
  lr('No: '+s.id,new Date(s.date).toLocaleString('id-ID',{dateStyle:'short',timeStyle:'short'}));lr('Kasir',s.cashier);sep();
  s.items.forEach((i,x)=>{if(x)for(let k=0;k<(+st.feed||0);k++)ln('');const n=String(i.n);for(let k=0;k<n.length;k+=W)ln(n.slice(k,k+W));lr((st.qpre?st.qpre+' ':'')+i.qty+' '+i.u+' x '+f(i.price)+(i.disc?' -'+i.disc+'%':''),f(i.total))});sep();
- lr('Subtotal',f(s.sub));if(s.disc)lr('Diskon','-'+f(s.disc));u(27,69,1);lr('TOTAL',f(s.total));u(27,69,0);lr(s.method,f(s.paid));lr('Kembali',f(s.change));sep();u(27,97,1);ln(st.foot);u(27,97,0);u(10,10,10);if(st.cut)u(29,86,66,0);
+ if(DESK)lr('Jumlah item',itc(s));lr('Subtotal',f(s.sub));if(s.disc)lr('Diskon','-'+f(s.disc));u(27,69,1);lr('TOTAL',f(s.total));u(27,69,0);lr(s.method,f(s.paid));lr('Kembali',f(s.change));sep();u(27,97,1);ln(st.foot);u(27,97,0);u(10,10,10);if(st.cut)u(29,86,66,0);
  const o=new Uint8Array(B.reduce((a,b)=>a+b.length,0));let p=0;B.forEach(b=>{o.set(b,p);p+=b.length});return o}
 
 /* ---- mode input: ketik / scan kamera, & fitur khusus APK ---- */
@@ -1177,6 +1190,7 @@ $('#lchk').onclick=async()=>{toast('Memeriksa…');const r=await licRefresh();$(
 function dkLabel(){const r=$('#drow'),sp=r&&r.firstElementChild;if(!sp)return;const v=num($('#dtot').value);sp.textContent='Diskon (Rp)'+(v>0&&!r.classList.contains('open')?' – '+rp(v):'')}
 function dkSet(o){const r=$('#drow');if(!r)return;r.classList.toggle('open',!!o);dkLabel()}
 if(DESK){
+ const hh=()=>document.documentElement.style.setProperty('--hh',($('header').offsetHeight||66)+'px');hh();addEventListener('resize',hh);try{new ResizeObserver(hh).observe($('header'))}catch(e){}
  /* kolom diskon: terlipat, klik judul untuk membuka; nilai awal 0 */
  $('#dtot').value=0;
  $('#drow').firstElementChild.onclick=()=>{const o=!$('#drow').classList.contains('open');dkSet(o);if(o){const d=$('#dtot');d.focus();d.select()}};
