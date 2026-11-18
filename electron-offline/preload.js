@@ -4,7 +4,6 @@ contextBridge.exposeInMainWorld('posDesk', {
   list: () => ipcRenderer.invoke('bk:list'),
   read: (name) => ipcRenderer.invoke('bk:read', name),
   refocus: () => ipcRenderer.send('win:refocus'),
-  devMode: (role, silent) => ipcRenderer.invoke('dev:mode', role, silent),
-  devSaved: (role) => ipcRenderer.invoke('dev:saved', role),
-  devForget: (role) => ipcRenderer.invoke('dev:forget', role)
+  devRole: (role) => ipcRenderer.invoke('dev:role', role),
+  reconnect: (roles) => ipcRenderer.invoke('dev:reconnect', roles)
 });

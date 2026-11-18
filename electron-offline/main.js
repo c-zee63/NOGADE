@@ -35,15 +35,32 @@ ipcMain.on('win:refocus', (e) => {
 // butuh pemilih perangkat dari proses utama; tanpa ini tombol "Hubungkan printer" tidak menampilkan apa pun.
 const hex = (n) => (n == null ? '----' : Number(n).toString(16).toUpperCase().padStart(4, '0'));
 let chooserBusy = false;
-// Ingat port COM printer/scanner terakhir yang dipilih agar tidak perlu memilih/pairing lagi setiap aplikasi dibuka.
-const portsFile = () => path.join(app.getPath('userData'), 'ports.json');
-let savedPorts = {};
-try { savedPorts = JSON.parse(fs.readFileSync(portsFile(), 'utf8')) || {}; } catch (e) { savedPorts = {}; }
-const writePorts = () => { try { fs.writeFileSync(portsFile(), JSON.stringify(savedPorts)); } catch (e) {} };
-let devRole = 'printer', devSilent = false;
-ipcMain.handle('dev:mode', (_e, role, silent) => { devRole = role === 'scan' ? 'scan' : 'printer'; devSilent = !!silent; return !!savedPorts[devRole]; });
-ipcMain.handle('dev:saved', (_e, role) => !!savedPorts[role === 'scan' ? 'scan' : 'printer']);
-ipcMain.handle('dev:forget', (_e, role) => { delete savedPorts[role === 'scan' ? 'scan' : 'printer']; writePorts(); });
+
+// Ingat perangkat yang pernah dipilih (disimpan di folder data aplikasi) supaya setelah aplikasi ditutup/dibuka
+// printer & scanner tersambung lagi otomatis, tanpa memilih port/pairing ulang.
+const devFile = () => path.join(app.getPath('userData'), 'devices.json');
+const devLoad = () => { try { return JSON.parse(fs.readFileSync(devFile(), 'utf8')) || {}; } catch (e) { return {}; } };
+const devSave = (role, v) => { try { const o = devLoad(); o[role] = v; fs.writeFileSync(devFile(), JSON.stringify(o), 'utf8'); } catch (e) {} };
+let devReq = { role: '', auto: false, t: 0 };
+const takeReq = () => { const r = devReq; devReq = { role: '', auto: false, t: 0 }; return (r.role && Date.now() - r.t < 20000) ? r : { role: '', auto: false }; };
+const same = (a, b) => String(a) === String(b);
+function findSerial(list, sv) {
+  if (!sv) return null;
+  if (sv.deviceInstanceId) { const h = list.find((p) => p.deviceInstanceId && p.deviceInstanceId === sv.deviceInstanceId); if (h) return h; }
+  if (sv.portName) { const h = list.find((p) => p.portName === sv.portName && (!sv.vendorId || same(p.vendorId, sv.vendorId))); if (h) return h; }
+  if (sv.vendorId && sv.productId) { const c = list.filter((p) => same(p.vendorId, sv.vendorId) && same(p.productId, sv.productId)); if (c.length === 1) return c[0]; }
+  return null;
+}
+ipcMain.handle('dev:role', (_e, role) => { devReq = { role: /^(printer|scan)$/.test(role) ? role : '', auto: false, t: Date.now() }; return true; });
+ipcMain.handle('dev:reconnect', async (e, roles) => {
+  for (const r of (Array.isArray(roles) ? roles : [])) {
+    if (!/^(printer|scan)$/.test(r)) continue;
+    devReq = { role: r, auto: true, t: Date.now() };
+    try { await e.sender.executeJavaScript('window.dkAutoConn&&window.dkAutoConn(' + JSON.stringify(r) + ')', true); } catch (err) {}
+  }
+  devReq = { role: '', auto: false, t: 0 };
+  return true;
+});
 async function pilih(win, judul, pesan, items) {
   // items: [{ id, label }] -> mengembalikan id yang dipilih, atau '' bila dibatalkan
   if (chooserBusy) return '';
@@ -63,12 +80,10 @@ function setupDevices(win) {
   ses.setDevicePermissionHandler((d) => d.deviceType === 'serial' || d.deviceType === 'usb');
   ses.on('select-serial-port', async (event, portList, _wc, callback) => {
     event.preventDefault();
-    if (devSilent) { // sambung ulang otomatis ke port tersimpan, tanpa dialog
-      devSilent = false;
-      const sv = savedPorts[devRole];
-      const hit = sv && (portList.find((p) => p.portName === sv.portName) ||
-        (sv.vendorId ? portList.find((p) => p.vendorId === sv.vendorId && p.productId === sv.productId) : null));
-      return callback(hit ? hit.portId : '');
+    const rq = takeReq();
+    if (rq.auto) { // sambung ulang otomatis: pakai perangkat tersimpan, tanpa dialog apa pun
+      const h = findSerial(portList, devLoad()[rq.role]);
+      return callback(h ? h.portId : '');
     }
     if (!portList.length) {
       await dialog.showMessageBox(win, {
@@ -79,8 +94,8 @@ function setupDevices(win) {
     }
     const id = await pilih(win, 'Pilih port serial / COM', 'Pilih port printer (atau scanner) yang akan dihubungkan:',
       portList.map((p) => ({ id: p.portId, label: (p.displayName || p.portName) + '  [' + p.portName + (p.vendorId ? ', VID ' + hex(p.vendorId) + ':' + hex(p.productId) : '') + ']' })));
-    const ch = portList.find((p) => p.portId === id);
-    if (ch) { savedPorts[devRole] = { portName: ch.portName, displayName: ch.displayName || '', vendorId: ch.vendorId || 0, productId: ch.productId || 0 }; writePorts(); }
+    const pp = portList.find((x) => x.portId === id);
+    if (rq.role && pp) devSave(rq.role, { portName: pp.portName, displayName: pp.displayName || '', vendorId: pp.vendorId || '', productId: pp.productId || '', serialNumber: pp.serialNumber || '', deviceInstanceId: pp.deviceInstanceId || '' });
     callback(id);
   });
   ses.on('select-usb-device', async (event, details, callback) => {
