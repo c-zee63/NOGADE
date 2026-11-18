@@ -73,6 +73,13 @@ button,input,select{-webkit-tap-highlight-color:transparent}
 #cart td input{width:100%!important;min-width:0}
 #cart td.cx{grid-column:5;text-align:right}#cart td.cx button{padding:7px 10px}
 }
+/* keranjang tabel (PC & HP lanskap): Qty muat 3 digit, Harga & Subtotal muat 8 digit, sisa lebar untuk nama barang */
+@media (orientation:landscape),(min-width:901px){
+#ct th:nth-child(2),#ct th:nth-child(3),#ct th:nth-child(4){width:1px;white-space:nowrap}
+#cart td.r,#cart td[data-l=Qty]{white-space:nowrap}
+#cart input[data-f=qty]{width:calc(3ch + 28px)}
+#cart input[data-f=pp],#cart input[data-f=st]{width:calc(8ch + 26px)!important}
+}
 
 /* ===== Tombol total + BAYAR cepat (header = lanskap, samping tombol Masuk = potret) ===== */
 .hpay{display:none;flex-direction:column;align-items:center;justify-content:center;line-height:1;height:38px;min-width:96px;padding:0 10px;border-radius:8px;background:var(--a);color:#fff;border:2px solid rgba(255,255,255,.75);font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.35);flex:0 0 auto;overflow:hidden}
@@ -167,8 +174,8 @@ html.desk #cart td,html.desk #ct th{padding:8px 6px}
 html.desk #cart td.cn{font-size:17px;font-weight:600}
 html.desk #cart td.r{font-size:16px;white-space:nowrap}
 html.desk #cart input{font-size:16px;padding:7px 8px}
-html.desk #cart input.sm{width:72px}
-html.desk #cart input[data-f=pp],html.desk #cart input[data-f=st]{width:115px!important;text-align:right}
+html.desk #cart input.sm{width:calc(3ch + 24px)} /* Qty: muat 3 digit */
+html.desk #cart input[data-f=pp],html.desk #cart input[data-f=st]{width:calc(8ch + 24px)!important;text-align:right} /* Harga & Subtotal: muat 8 digit */
 html.desk #cart td.cn input.cname{width:100%;font-size:17px;font-weight:600}
 html.desk #ct th{font-size:15px}
 html.desk #paid{width:220px!important;font-size:24px;text-align:right}
