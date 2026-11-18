@@ -35,6 +35,15 @@ ipcMain.on('win:refocus', (e) => {
 // butuh pemilih perangkat dari proses utama; tanpa ini tombol "Hubungkan printer" tidak menampilkan apa pun.
 const hex = (n) => (n == null ? '----' : Number(n).toString(16).toUpperCase().padStart(4, '0'));
 let chooserBusy = false;
+// Ingat port COM printer/scanner terakhir yang dipilih agar tidak perlu memilih/pairing lagi setiap aplikasi dibuka.
+const portsFile = () => path.join(app.getPath('userData'), 'ports.json');
+let savedPorts = {};
+try { savedPorts = JSON.parse(fs.readFileSync(portsFile(), 'utf8')) || {}; } catch (e) { savedPorts = {}; }
+const writePorts = () => { try { fs.writeFileSync(portsFile(), JSON.stringify(savedPorts)); } catch (e) {} };
+let devRole = 'printer', devSilent = false;
+ipcMain.handle('dev:mode', (_e, role, silent) => { devRole = role === 'scan' ? 'scan' : 'printer'; devSilent = !!silent; return !!savedPorts[devRole]; });
+ipcMain.handle('dev:saved', (_e, role) => !!savedPorts[role === 'scan' ? 'scan' : 'printer']);
+ipcMain.handle('dev:forget', (_e, role) => { delete savedPorts[role === 'scan' ? 'scan' : 'printer']; writePorts(); });
 async function pilih(win, judul, pesan, items) {
   // items: [{ id, label }] -> mengembalikan id yang dipilih, atau '' bila dibatalkan
   if (chooserBusy) return '';
@@ -54,6 +63,13 @@ function setupDevices(win) {
   ses.setDevicePermissionHandler((d) => d.deviceType === 'serial' || d.deviceType === 'usb');
   ses.on('select-serial-port', async (event, portList, _wc, callback) => {
     event.preventDefault();
+    if (devSilent) { // sambung ulang otomatis ke port tersimpan, tanpa dialog
+      devSilent = false;
+      const sv = savedPorts[devRole];
+      const hit = sv && (portList.find((p) => p.portName === sv.portName) ||
+        (sv.vendorId ? portList.find((p) => p.vendorId === sv.vendorId && p.productId === sv.productId) : null));
+      return callback(hit ? hit.portId : '');
+    }
     if (!portList.length) {
       await dialog.showMessageBox(win, {
         type: 'info', title: 'Port serial tidak ditemukan', message: 'Tidak ada port serial/COM yang terdeteksi.',
@@ -63,6 +79,8 @@ function setupDevices(win) {
     }
     const id = await pilih(win, 'Pilih port serial / COM', 'Pilih port printer (atau scanner) yang akan dihubungkan:',
       portList.map((p) => ({ id: p.portId, label: (p.displayName || p.portName) + '  [' + p.portName + (p.vendorId ? ', VID ' + hex(p.vendorId) + ':' + hex(p.productId) : '') + ']' })));
+    const ch = portList.find((p) => p.portId === id);
+    if (ch) { savedPorts[devRole] = { portName: ch.portName, displayName: ch.displayName || '', vendorId: ch.vendorId || 0, productId: ch.productId || 0 }; writePorts(); }
     callback(id);
   });
   ses.on('select-usb-device', async (event, details, callback) => {
