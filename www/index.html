@@ -1663,6 +1663,7 @@ if(!DESK)return;
 const W=window,card=$('#v-stok .card'),snew=$('#snew');
 if(!card||!snew)return;
 {const h=card.querySelector('h3');if(h)h.textContent='Stok masuk / opname / supplier'}
+{const o=$('#sm option[value="in"]');if(o)o.textContent='Stok Masuk (pembelian / supplier)'}
 const dd=t=>t?new Date(t).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'-';
 const dtgl=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')?dd(v+'T00:00:00'):(v||'-');
 const f2=n=>Math.round(+n||0);
@@ -1705,7 +1706,7 @@ const snap=p=>{const o={};TXTK.forEach(k=>o[k]=String(p[k]??''));NUMK.forEach(k=
 const hbEff=(i,p)=>($('#nb-upd').checked&&i.price>0)?i.price:p.hb;
 function panel(i,n,p){
  const ro=owner?'':' disabled',e=i.ed,fr=snap(p);TXTK.concat(NUMK).forEach(k=>{if(!(i.dk&&i.dk[k]))e[k]=fr[k]}),
- fld=([k,l,w])=>`<div${w?' style="grid-column:1/-1"':''}><label${['h1','h2','h3','h4'].includes(k)?' style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"':''}><span>${l}</span>${['h1','h2','h3','h4'].includes(k)?`<span data-nt="${n}" data-ntk="${k}" style="text-align:right;font-weight:600"></span>`:''}</label><input data-ei="${n}" data-ef="${k}" type="text" autocomplete="off"${NUMK.includes(k)?' inputmode="decimal"':k==='kat'?' list="nb-catl"':k==='sup'?' list="nb-supl"':''} value="${esc(e[k])}"${ro}></div>`;
+ fld=([k,l,w])=>`<div${w?' style="grid-column:1/-1"':''}><label${['h1','h2','h3','h4','q2','q3','q4'].includes(k)?' style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"':''}><span>${l}</span>${['h1','h2','h3','h4','q2','q3','q4'].includes(k)?`<span data-nt="${n}" data-ntk="${k}" style="text-align:right;font-weight:600"></span>`:''}</label><input data-ei="${n}" data-ef="${k}" type="text" autocomplete="off"${NUMK.includes(k)?' inputmode="decimal"':k==='kat'?' list="nb-catl"':k==='sup'?' list="nb-supl"':''} value="${esc(e[k])}"${ro}></div>`;
  return`<tr class="nb-pn"><td></td><td colspan="7"><div style="border:1px solid var(--b);border-left:4px solid var(--a);border-radius:8px;padding:10px;margin:2px 0 6px">
  <div style="margin-bottom:8px"><b>Info produk</b> <span class="m">· stok tidak ditampilkan · data di kotak ini <b>tidak masuk ke nota pembelian</b>, hanya memperbarui data barang saat nota disimpan</span></div>
  <div class="f" style="grid-template-columns:1fr 1fr;gap:10px 18px">${fld(EF[0])}${fld(EF[1])}${fld(EF[2])}${fld(EF[3])}${fld(EF[4])}${fld(EF[5])}<div><label>Harga beli (sesuai nota ini)</label><div style="padding:7px 0"><b data-nhb="${n}"></b></div></div>${fld(PF[0])}<div><label>Min qty harga jual</label><div style="padding:7px 0" class="m">1 (harga satuan)</div></div>${fld(PF[1])}${fld(PF[2])}${fld(PF[3])}${fld(PF[4])}${fld(PF[5])}${fld(PF[6])}${fld(PF[7])}</div>
@@ -1728,7 +1729,13 @@ function refresh(){items.forEach((i,n)=>{if(!i.open||!i.ed)return;const p=P(i.id
   if(!(v>0)||!(hb>0)){a.className='m';a.textContent='';return}
   const d=v-hb,pc=(Math.abs(d)/hb*100).toFixed(1);
   if(d<-0.005){a.className='low';a.textContent='Rugi '+rp(-d)+' per '+p.u+' ('+pc+'% dari harga beli)'}
-  else{a.className='pos';a.textContent='Untung '+rp(d)+' per '+p.u+' ('+pc+'% dari harga beli)'}})})}
+  else{a.className='pos';a.textContent='Untung '+rp(d)+' per '+p.u+' ('+pc+'% dari harga beli)'}});
+ /* total untung/rugi per Min qty harga bertingkat = (harga jual N - harga beli) x Min qty N, dibulatkan */
+ [['q2','h2'],['q3','h3'],['q4','h4']].forEach(([qk,hk])=>{const a=$('#nb-tb [data-nt="'+n+'"][data-ntk="'+qk+'"]');if(!a)return;const v=num(i.ed[hk]),q=num(i.ed[qk]);
+  if(!(v>0)||!(q>0)||!(hb>0)){a.className='m';a.textContent='';return}
+  const t=Math.round((v-hb)*q);
+  if(t<0){a.className='low';a.textContent='Rugi '+rp(-t)+' per '+q+' '+p.u}
+  else{a.className='pos';a.textContent='Untung '+rp(t)+' per '+q+' '+p.u}})})}
 function sums(){$('#nb-cnt').textContent=items.length;$('#nb-tot').textContent=rp(total());refresh()}
 /* centang Info: buka / tutup panel info produk */
 $('#nb-tb').addEventListener('change',e=>{const c=e.target.closest('[data-ni]');if(!c)return;const n=+c.dataset.ni,i=items[n],p=i&&P(i.id);if(!i||!p)return;
