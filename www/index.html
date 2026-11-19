@@ -652,6 +652,7 @@ function pay(){if(!cart.length)return toast('Keranjang kosong');if(DESK&&cart.so
  const low=cart.filter(c=>availQty(P(c.id))<c.qty);if(low.length&&!confirm('Stok tidak cukup untuk: '+low.map(c=>P(c.id).n).join(', ')+'. Lanjutkan?'))return;
  const items=cart.map(c=>{const p=P(c.id);return{id:p.id,n:c.nm||p.n,u:p.u,qty:c.qty,price:unit(c),disc:c.disc,hb:p.snk?(c.qty?line(c)/c.qty:0):p.hb,kat:p.kat,total:line(c)}});
  let _sl=null,_sp=0;if(DESK&&m==='Tunai'&&window.dkTP){_sl=window.dkTP();if(_sl&&paid>t.total)_sp=Math.min(Math.round(paid-t.total),_sl.debt)}
+ if(_sp>0){const _rest=_sl.debt-_sp,_ch=Math.max(0,paid-t.total-_sp);if(!confirm('Tunai + Piutang – '+_sl.name+'\n\nBelanja: '+rp(t.total)+'\nSetoran piutang: '+rp(_sp)+(_rest>0?' (sisa piutang '+rp(_rest)+')':' (LUNAS)')+(_ch>0?'\nKembalian: '+rp(_ch):'')+'\n\nLanjut?'))return}
  const s={id:newSid(),date:Date.now(),items,sub:t.sub,disc:t.dt,total:t.total,profit:t.profit,paid,change:Math.max(0,paid-t.total-_sp),method:m,cashier:S.settings.cashier+(owner?' (Owner)':'')};
  if(_sp>0){s.arSetor=_sp;s.arSisa=Math.max(0,_sl.debt-_sp)}
  if(_ar)window.dkArMake(s,_ar);
@@ -1310,6 +1311,8 @@ if(DESK){
  function dkJumpPay(){
   if(!cart.length||$('#method').value!=='Tunai')return false;
   const p=$('#paid'),t=totals().total;
+  if(DESK&&window.dkTP&&window.dkTP()){/* Tunai + Piutang: isian (belanja + piutang) diisi oleh modul piutang; jangan ditimpa dengan total saja */
+   calc();if(window.dkTPAuto&&window.dkTPAuto()&&p.value!=='')dkAutoVal=p.value;goPay();return true}
   if(t>0){p.value=String(t);dkAutoVal=String(t);calc()}
   goPay();return true}
  $$('.hpay').forEach(b=>{b.onclick=()=>{if(!dkJumpPay())goPay()}});
@@ -1677,6 +1680,7 @@ function info(){
  if(!hist.length)return null;
  const list=hist.filter(s=>W.dkArSisa(s)>0);
  return{hist,list,name:(c&&c.name)||hist[0].ar.cust||name,debt:list.reduce((a,s)=>a+W.dkArSisa(s),0)}}
+let auto=false;/* true = isi Dibayar masih otomatis (belum diketik kasir) */
 const mode=()=>{const r=document.querySelector('input[name=tpm]:checked');return r?r.value:'T'};
 const setMode=v=>{const r=document.querySelector('input[name=tpm][value='+v+']');if(r)r.checked=true};
 function ensure(){
@@ -1686,7 +1690,7 @@ function ensure(){
  if(!$('#tprow')){const t=document.createElement('div');t.className='row';t.id='tprow';t.style.display='none';
   const lb='display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;color:inherit;font-size:14px';
   t.innerHTML='<span>Mode bayar</span><span style="display:flex;gap:16px;align-items:center"><label style="'+lb+'"><input type="radio" name="tpm" value="T" checked style="width:auto"> Tunai</label><label style="'+lb+'"><input type="radio" name="tpm" value="TP" style="width:auto"> Tunai + Piutang</label></span>';
-  m.closest('.row').after(t);t.addEventListener('change',()=>{refresh();if(mode()==='TP')$('#paid').focus()})}
+  m.closest('.row').after(t);t.addEventListener('change',()=>{if(mode()==='TP'){auto=true;$('#paid').value=''}else if(auto){$('#paid').value='';auto=false}refresh();if(mode()==='TP'){const pd=$('#paid');pd.focus();pd.select()}})}
  if(!$('#tpinfo')){const d=document.createElement('div');d.id='tpinfo';d.style.cssText='font-size:14px;margin:-2px 0 8px;display:none';pr.closest('.row').after(d)}
  return true}
 function refresh(){
@@ -1697,8 +1701,10 @@ function refresh(){
  t.style.display=show?'':'none';
  if(!show)setMode('T');
  const tp=show&&mode()==='TP';
- if(!tp){inf.style.display='none';inf.innerHTML='';return}
- const T=totals().total,p=num($('#paid').value);
+ if(!tp){if(auto){const pd=$('#paid');if(pd)pd.value='';auto=false}inf.style.display='none';inf.innerHTML='';return}
+ const T=totals().total;
+ if(auto&&I.debt>0&&T>0){const pd=$('#paid'),v=String(Math.round(T+I.debt));if(pd.value!==v)pd.value=v}
+ const p=num($('#paid').value);
  let h;
  if(!(I.debt>0))h='<span class="m">Tidak ada piutang berjalan – sama seperti Tunai.</span>';
  else if(!(p>0))h='<span class="m">Isi jumlah dibayar. Kelebihan dari belanja ('+rp(T)+') otomatis menjadi setoran piutang.</span>';
@@ -1709,13 +1715,33 @@ function refresh(){
  inf.innerHTML=h;inf.style.display=''}
 /* dipakai pay() */
 W.dkTP=()=>{const I=info();return(I&&I.debt>0&&$('#method').value==='Tunai'&&mode()==='TP')?I:null};
+W.dkTPAuto=()=>auto;
 W.dkTPApply=(I,amt,s)=>{try{W.dkArApplyPay(I.list,amt,'Tunai','Setoran saat transaksi #'+s.id)}catch(e){console.error(e)}};
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='custname'){setMode('T');refresh()}else if(t.id==='paid')refresh()});
+/* capture: tandai "diketik kasir" SEBELUM handler Dibayar bawaan memanggil calc() */
+document.addEventListener('input',e=>{if(e.target.id==='paid')auto=false},true);
 document.addEventListener('change',e=>{const t=e.target;if(t.id==='custname'){setMode('T');refresh()}else if(t.id==='method')refresh()});
 {const c=$('#clr');if(c)c.addEventListener('click',()=>setTimeout(refresh,0))}
 {const _c=calc;calc=function(){const r=_c.apply(this,arguments);try{refresh()}catch(e){}return r}}
 {const _br=brand;brand=function(){const r=_br.apply(this,arguments);try{refresh()}catch(e){}return r}}
 try{refresh()}catch(e){}
+/* tutorial: piutang pelanggan & Tunai + Piutang (PC saja) */
+try{
+ const bd=TUT[10][1],h=[
+  '<p>Fitur ini aktif bila <b>Piutang</b> dan <b>Pelanggan</b> dicentang di Pengaturan. Ketik atau pilih nama pada kolom <b>Pelanggan</b> di layar Kasir.</p>',
+  '<ul><li><b>Tulisan merah</b> di bawah kolom Pelanggan berarti pelanggan itu masih punya piutang (total semua nota yang belum lunas).</li>',
+  '<li>Pilihan <b>Mode bayar</b> hanya muncul bila metode <b>Tunai</b> dan pelanggan <b>pernah punya piutang</b>. Pelanggan lain tidak melihatnya. Pilihan awal selalu <b>Tunai</b>.</li></ul>',
+  '<p><b>Memakai Tunai + Piutang</b></p>',
+  '<ol><li>Isi barang di keranjang dan pilih pelanggan.</li>',
+  '<li>Pilih <b>Tunai + Piutang</b>. Kolom Dibayar langsung terisi <b>total belanja + sisa piutang</b>.</li>',
+  '<li>Pelanggan melunasi semuanya: tekan <b>BAYAR</b>. Pelanggan hanya menyicil: ketik jumlah uang yang diterima. Bagian di atas total belanja dihitung sebagai <b>setoran piutang</b>.</li>',
+  '<li>Bila uang lebih dari belanja + piutang, piutang lunas dan sisanya menjadi kembalian.</li>',
+  '<li>Muncul konfirmasi berisi Belanja, Setoran piutang (LUNAS / sisa piutang), dan Kembalian. Pilih OK untuk melanjutkan, Batal untuk kembali.</li></ol>',
+  '<p>Uang yang kurang dari total belanja tetap ditolak. Setoran masuk ke nota piutang terlama / jatuh tempo terdekat lebih dulu dan tercatat di menu <b>Piutang</b> → Rincian. Bila pelanggan hanya mau bayar belanja tanpa menyentuh piutang, pilih mode <b>Tunai</b>.</p>',
+  '<p>Bila transaksi belanja yang disertai setoran di-<b>void</b>, setoran piutangnya tidak ikut batal otomatis; batalkan lewat menu Piutang → Rincian → Batalkan (Owner).</p>'].join('\n');
+ TUT.splice(11,0,['Piutang pelanggan dan bayar Tunai + Piutang (komputer)',bd,h]);
+ TUT.forEach(t=>{if(/<b>PrtScn<\/b>/.test(t[2])&&/Pintasan|F2<\/b>/.test(t[0]+t[2])&&!/Tunai \+ Piutang/.test(t[2]))t[2]=t[2].replace(/(<li><b>PrtScn<\/b>[\s\S]*?)<\/li>/,'$1. Pada mode Tunai + Piutang, kolom Dibayar terisi total belanja + piutang<\/li>')});
+}catch(e){}
 })();
 
 /* ===== PC (.exe) SAJA: NOTA PEMBELIAN (stok masuk banyak barang dari 1 supplier dalam 1 nota) ===== */
