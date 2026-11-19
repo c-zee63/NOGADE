@@ -1835,5 +1835,27 @@ $('#nb-tgl').value=today();renderItems();
 try{mode()}catch(e){}
 })();
 
+
+/* ===== PC (.exe) SAJA: RIWAYAT STOK = hari ini; pilih tanggal = tampilkan semua riwayat sejak tanggal itu ===== */
+(function(){
+if(!DESK)return;
+const sl=$('#sl');if(!sl)return;
+const cd=sl.closest('.card'),h=cd&&cd.querySelector('h3');if(!h)return;
+h.textContent='Riwayat stok';
+const bar=document.createElement('div');bar.className='bar';bar.style.cssText='align-items:center;margin:6px 0 8px;gap:8px;flex-wrap:wrap';
+bar.innerHTML='<label class="m" for="sl-tgl" style="margin:0">Tampilkan mulai tanggal</label><input id="sl-tgl" type="date" style="width:auto"><button id="sl-hr" type="button">Hari ini</button><span class="m" id="sl-inf"></span>';
+h.after(bar);
+function render(){
+ const v=$('#sl-tgl').value,d0=new Date();d0.setHours(0,0,0,0);
+ const st=v?new Date(v+'T00:00:00').getTime():d0.getTime();
+ const rows=S.log.filter(l=>(+l.t||0)>=st).slice().reverse();
+ $('#sl-inf').textContent=rows.length+' catatan · '+(v?'semua riwayat sejak '+new Date(v+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):'hari ini');
+ $('#sl').innerHTML=rows.map(l=>`<tr><td>${dstr(l.t)}</td><td>${esc(l.n)}</td><td>${l.m==='in'?'Masuk':l.m==='brk'?'Pecah karton':'Opname'}</td><td class="r">${l.a}</td><td class="r">${l.z}</td><td>${esc(l.note)}</td></tr>`).join('')||'<tr><td colspan="6" class="m">'+(v?'Tidak ada riwayat stok sejak tanggal ini.':'Belum ada riwayat stok hari ini. Pilih tanggal untuk melihat riwayat sebelumnya.')+'</td></tr>'}
+$('#sl-tgl').addEventListener('change',render);
+$('#sl-hr').onclick=()=>{$('#sl-tgl').value='';render()};
+{const _rs=renderStok;renderStok=function(){const r=_rs.apply(this,arguments);try{render()}catch(e){}return r}}
+try{render()}catch(e){}
+})();
+
 init();
 </script></body></html>
