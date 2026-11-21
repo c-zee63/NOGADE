@@ -5,6 +5,7 @@
 @media(prefers-color-scheme:dark){:root{--bg:#14171c;--c:#1d2229;--t:#e7eaee;--m:#98a2b3;--b:#323a45;--r:#f87171;--hov:#2b3744;--sel:#2dd4bf;--selt:#04201d;--selb:#7c2d12}}
 *{box-sizing:border-box}body{margin:0;font:14px system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--t)}
 header{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--a);color:#fff;flex-wrap:wrap}
+header{min-height:60px}@media(min-width:601px){header{min-height:70px}}@media(min-width:1101px){header{min-height:80px}}
 header img{height:36px;max-width:90px;object-fit:contain;background:#fff;border-radius:6px;padding:2px}
 header b#hn{font:700 27px/36px Georgia,"Palatino Linotype",Palatino,"Book Antiqua","Times New Roman",serif;letter-spacing:.07em;text-transform:uppercase;margin:-2px 0;flex:0 1 auto;min-width:0;max-width:100%;height:36px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:linear-gradient(180deg,#fff 35%,#fde68a 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.45))}
 @media(max-width:600px){header b#hn{font-size:21px;letter-spacing:.05em;margin:-8px 0}}nav button{background:transparent;color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px}
@@ -282,8 +283,9 @@ html.desk #dg input[data-k]{font-size:18px}
 <div><label>Kertas struk</label><select id="s-paper"><option value="80">80 mm</option><option value="58">58 mm</option></select></div><div><label>Warna tema</label><input id="s-accent" type="color"></div><div><label>PIN mode Owner</label><input id="s-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]*" placeholder="4 angka"></div><div><label><input type="checkbox" id="s-profit" style="width:auto"> Tampilkan laba di mode Kasir</label></div></div>
 <h3 id="lh">Logo toko</h3><div class="bar" id="lbar"><img id="lp" style="height:70px;max-width:200px;object-fit:contain;border:1px solid var(--b);border-radius:8px;padding:4px;background:#fff"><input type="file" id="lf2" accept="image/*"><button class="d" id="ld">Hapus logo</button></div>
 <h3 id="hh">Background header</h3><div class="bar"><div id="hbp" style="height:56px;width:360px;max-width:100%;border-radius:8px;border:1px solid var(--b)"></div></div>
-<div class="bar"><input type="file" id="hbf" accept="image/*"><select id="hbpos" title="Bagian gambar yang ditampilkan"><option value="center">Posisi gambar: tengah</option><option value="top">Posisi gambar: atas</option><option value="bottom">Posisi gambar: bawah</option></select><button class="d" id="hbd" type="button">Hapus gambar (kembali ke gradasi)</button></div>
+<div class="bar"><input type="file" id="hbf" accept="image/*"><button class="d" id="hbd" type="button">Hapus gambar (kembali ke gradasi)</button></div>
 <p class="m" id="hbn"></p>
+<p class="m" id="hbs" style="margin-top:0"><b>Ukuran tampilan tetap (otomatis dipotong bagian tengah):</b><br>📱 HP (layar ≤ 600 px): <b>720 × 120 px</b> · tinggi header 60 px<br>📲 Tablet (601–1100 px): <b>1536 × 140 px</b> · tinggi header 70 px<br>🖥️ PC / laptop (&gt; 1100 px): <b>1920 × 80 px</b> · tinggi header 80 px<br>Pakai gambar lebar (landscape) minimal 1920 px agar tajam di semua perangkat; bagian penting taruh di tengah gambar.</p>
 <p class="m" id="sy-lock" style="display:none;color:var(--r);font-weight:600">🔒 Kolom identitas toko, teks struk, tema, PIN, dan logo disembunyikan di HP ini. Semuanya hanya diatur di HP Utama (Kode HP = 1), lalu otomatis menyebar ke HP ini. Pengaturan printer, kertas, dan nama kasir tetap bisa diubah di sini.</p><p class="m" id="licinfo"></p><button id="lchk" type="button">🌐 Periksa status lisensi</button> <button class="p" id="ssave">Simpan pengaturan</button></div>
 <div class="card"><h3 style="margin-top:0">Pembaca barcode</h3>
 <p class="m nat">Scan memakai kamera HP: di halaman Kasir pilih ikon 📷 lalu tekan tombol scan. Saat pertama kali, modul scanner Google diunduh otomatis (butuh internet sekali). Scanner Bluetooth mode keyboard juga tetap bisa dipakai.</p><p class="m webo">Scanner USB atau Bluetooth mode keyboard (HID) cukup dicolok, atau dipasangkan lewat Windows (Settings → Bluetooth &amp; devices); tidak ada pairing di aplikasi. Di halaman Kasir hasil scan langsung menambah barang. Scanner mode serial/COM dihubungkan di bawah.</p>
@@ -313,7 +315,7 @@ const rp=n=>'Rp '+Math.round(n||0).toLocaleString('id-ID'),num=v=>parseFloat(Str
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const dstr=t=>new Date(t).toLocaleString('id-ID');
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
-const DEF={name:'TOKO SAYA',addr:'',tel:'',foot:'Terima kasih atas kunjungan Anda',paper:80,autoPrint:true,cashier:'Kasir',logo:'',hbg:'',hbgPos:'center',accent:'#0f766e',nextId:1,nextSale:1,pin:'1234',showProfit:false,qpre:'',feed:0,printer:'rawbt',sbaud:9600,pbaud:9600,printLogo:true,cut:true,smode:'slow',abOn:false,abMode:'daily',abTime:'21:00',abKeep:7};
+const DEF={name:'TOKO SAYA',addr:'',tel:'',foot:'Terima kasih atas kunjungan Anda',paper:80,autoPrint:true,cashier:'Kasir',logo:'',hbg:'',hbgT:'',hbgH:'',accent:'#0f766e',nextId:1,nextSale:1,pin:'1234',showProfit:false,qpre:'',feed:0,printer:'rawbt',sbaud:9600,pbaud:9600,printLogo:true,cut:true,smode:'slow',abOn:false,abMode:'daily',abTime:'21:00',abKeep:7};
 let S={products:[],settings:{},held:[],log:[],sales:[]},cart=[],idb=null,tm,dirty=new Set();
 function bigOrderAlert(o){try{
  try{if(navigator.vibrate)navigator.vibrate([400,150,400,150,400])}catch(e){}
@@ -633,11 +635,15 @@ function hdrGrad(a){const m=/^#?([0-9a-f]{6})$/i.exec(String(a||'').trim());if(!
  let h=0,sa=0;if(d){sa=d/(1-Math.abs(2*l-1));h=mx===R?((G-B)/d)%6:mx===G?(B-R)/d+2:(R-G)/d+4;h=(h*60+360)%360}
  const c=(dh,dl)=>'hsl('+Math.round((h+dh+360)%360)+','+Math.round(Math.min(1,sa)*100)+'%,'+Math.round(Math.min(88,Math.max(10,l*100+dl)))+'%)',ac='#'+m[1];
  return'radial-gradient(110% 170% at 6% 0%,rgba(255,255,255,.22),rgba(255,255,255,0) 60%),linear-gradient(110deg,'+c(-14,9)+' 0%,'+ac+' 52%,'+c(16,-9)+' 100%)'}
-function hdrCss(){const st=S.settings;if(st.hbg){const ps={top:'center top',bottom:'center bottom'}[st.hbgPos]||'center center';return'linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.18)),url("'+st.hbg+'") '+ps+' / cover no-repeat'}return hdrGrad(st.accent)}
+/* ukuran gambar header TETAP per perangkat (px): HP 720x120, Tablet 1536x140, PC 1920x80 */
+const HDR_SZ={h:[720,120],t:[1536,140],p:[1920,80]};
+function hdrDev(){const w=window.innerWidth||document.documentElement.clientWidth||1200;return w<=600?'h':w<=1100?'t':'p'}
+function hdrImg(st){const d=hdrDev();return(d==='h'?st.hbgH:d==='t'?st.hbgT:st.hbg)||st.hbg||''}
+function hdrCss(){const st=S.settings,im=hdrImg(st);if(im)return'linear-gradient(rgba(0,0,0,.18),rgba(0,0,0,.18)),url("'+im+'") center center / cover no-repeat';return hdrGrad(st.accent)}
 function hdrApply(){const st=S.settings,bg=hdrCss(),h=document.querySelector('header');if(h)h.style.background=bg;
  const pv=document.getElementById('hbp');if(pv)pv.style.background=bg;
- const pos=document.getElementById('hbpos'),del=document.getElementById('hbd'),nt=document.getElementById('hbn');
- if(pos){pos.value=st.hbgPos||'center';pos.disabled=!st.hbg}if(del)del.disabled=!st.hbg;
+ const del=document.getElementById('hbd'),nt=document.getElementById('hbn');
+ if(del)del.disabled=!st.hbg;
  if(nt)nt.textContent=st.hbg?'Memakai gambar sendiri: header tidak lagi mengikuti Warna tema. Gambar ini hanya tersimpan di perangkat ini.':'Tanpa gambar, header memakai gradasi lembut yang otomatis mengikuti Warna tema.'}
 function brand(){const s=S.settings;if(DESK&&typeof dkLogoWarm==='function')dkLogoWarm();{const t=[s.name,s.addr,s.tel?'Telp: '+s.tel:''].map(x=>String(x||'').trim()).filter(Boolean).join('  •  ');const m=$('#mqt');if(m)m.textContent=t}$('#hn').textContent=s.name;document.title=s.name+' – POS';const l=$('#hl');l.src=s.logo||'';l.style.display=s.logo?'':'none';document.documentElement.style.setProperty('--a',s.accent);hdrApply();$('#doprint').checked=s.autoPrint!==false;$('#doshare').checked=!!s.autoShare}
 function show(v){if(LOCK.includes(v)&&!owner){toast('Khusus mode Owner');v='kasir'}$$('section').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));$$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#tutbtn').classList.toggle('on',v==='tut');document.body.classList.toggle('vk',v==='kasir');if(v!=='kasir')document.body.classList.remove('sfocus');({tut:renderTut,kasir:()=>{renderCart();$('#q').focus()},barang:renderBarang,stok:renderStok,riwayat:renderRiwayat,laporan:renderLaporan,set:renderSet,piutang:()=>{if(window.dkRenderAR)window.dkRenderAR()},pelanggan:()=>{if(window.dkRenderCust)window.dkRenderCust()}})[v]()}
@@ -1093,14 +1099,15 @@ $('#lf2').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image
 $('#ld').onclick=()=>{S.settings.logo='';save('settings');brand();prev()};
 /* background header: lokal per perangkat (tidak ikut sinkron cloud), dikecilkan otomatis agar ringan */
 $('#hbf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const im=new Image(),url=URL.createObjectURL(f);im.onerror=()=>{URL.revokeObjectURL(url);toast('File gambar tidak bisa dibaca')};
- im.onload=()=>{URL.revokeObjectURL(url);let sc=Math.min(1,1600/im.width),u='';
-  for(let t=0;t<3;t++){const c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*sc));c.height=Math.max(1,Math.round(im.height*sc));const x=c.getContext('2d');x.fillStyle=S.settings.accent||'#0f766e';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);
-   for(let q=.85;q>=.5;q-=.1){u=c.toDataURL('image/jpeg',q);if(u.length<=600000)break}
-   if(u.length<=600000)break;sc*=.6}
-  if(u.length>900000)return toast('Gambar terlalu besar, pilih gambar lain');
-  S.settings.hbg=u;save('settings');brand();toast('Background header diperbarui')};im.src=url};
-$('#hbd').onclick=()=>{S.settings.hbg='';save('settings');brand();toast('Background header kembali ke gradasi')};
-$('#hbpos').onchange=e=>{S.settings.hbgPos=e.target.value;save('settings');brand()};
+ im.onload=()=>{URL.revokeObjectURL(url);
+  /* potong bagian tengah (cover) ke ukuran tetap HP / Tablet / PC */
+  const mk=(W,H)=>{const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle=S.settings.accent||'#0f766e';x.fillRect(0,0,W,H);const k=Math.max(W/im.width,H/im.height),w=im.width*k,h=im.height*k;x.drawImage(im,(W-w)/2,(H-h)/2,w,h);let u='';for(let q=.85;q>=.5;q-=.1){u=c.toDataURL('image/jpeg',q);if(u.length<=300000)break}return u};
+  const p=mk(...HDR_SZ.p),t=mk(...HDR_SZ.t),h=mk(...HDR_SZ.h);
+  if(p.length+t.length+h.length>900000)return toast('Gambar terlalu besar, pilih gambar lain');
+  S.settings.hbg=p;S.settings.hbgT=t;S.settings.hbgH=h;save('settings');brand();toast('Background header diperbarui')};im.src=url};
+$('#hbd').onclick=()=>{S.settings.hbg='';S.settings.hbgT='';S.settings.hbgH='';save('settings');brand();toast('Background header kembali ke gradasi')};
+/* ganti gambar header otomatis saat ukuran layar pindah kelas (HP/Tablet/PC) */
+let _hdrD=hdrDev();addEventListener('resize',()=>{const d=hdrDev();if(d!==_hdrD){_hdrD=d;hdrApply()}});
 $('#bkmail').onchange=e=>{S.settings.bkEmail=e.target.value.trim();save('settings')};
 $('#bkd').onclick=async()=>{const m=$('#bkmail').value.trim();S.settings.bkEmail=m;save('settings');const pw=await ensurePw();if(!pw)return;try{const name=bkName(),txt=await bkEnc(await bkPayload(),pw);audit('backup_manual',name,{tujuan:'google drive'});if(isNative()){toast('Pilih Drive di menu yang muncul'+(m?' (akun: '+m+')':''));await nativeSave(name,txt)}else{saveRaw(name,txt);window.open('https://drive.google.com/drive/my-drive','_blank');toast('Backup terenkripsi terunduh. Tarik file ke Google Drive'+(m?' ('+m+')':''))}}catch(e){toast('Gagal membuat backup: '+(e.message||e))}};
 $('#sy-ok').onclick=async()=>{const v=i=>$(i).value.trim(),cfg={pid:v('#sy-pid'),key:v('#sy-key'),email:v('#sy-mail'),pass:$('#sy-pass').value,code:v('#sy-code')};if(!cfg.pid||!cfg.key||!cfg.email||!cfg.pass)return toast('Lengkapi semua kolom sinkronisasi');$('#sy-st').textContent='Menghubungkan...';try{const r=await syncConnect(cfg);if(!r){syncShow();return}save('products','settings','log');syncRefresh();await syncRun();toast(r==='pull'?'Terhubung. Data dari cloud dimuat':'Terhubung. Data HP ini diunggah ke cloud')}catch(e){SYNC.err=syncMsg(e.message);$('#sy-st').textContent='⚠ '+SYNC.err;toast('Gagal: '+SYNC.err)}};
