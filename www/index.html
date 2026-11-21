@@ -658,9 +658,9 @@ function match(p,q){const h=(p.n+' '+p.b+' '+p.k).toLowerCase(),t=q.toLowerCase(
 const NCOL=(()=>{try{return new Intl.Collator('id',{numeric:true,sensitivity:'base'})}catch(e){return null}})();const NCMP=(a,b)=>{a=String(a??'');b=String(b??'');return NCOL?NCOL.compare(a,b):(a.toLowerCase()<b.toLowerCase()?-1:a.toLowerCase()>b.toLowerCase()?1:0)};
 function find(q,lim=60){q=q.trim().toLowerCase();if(!q)return[];const ex=byCode(q),ids=new Set(ex.map(p=>p.id));const sc=p=>{const n=String(p.n).toLowerCase();return n.startsWith(q)?0:n.split(/\s+/).some(w=>w.startsWith(q))?1:n.includes(q)?2:3};const rest=S.products.filter(p=>!ids.has(p.id)&&match(p,q)).map(p=>[sc(p),p]).sort((a,b)=>a[0]-b[0]||NCMP(a[1].n,b[1].n)||NCMP(a[1].u,b[1].u)).map(x=>x[1]);const out=ex.concat(rest).slice(0,lim);if(DESK&&!ex.length&&q.length>=2&&'snack eceran'.includes(q))out.push(SNK);return out}
 function results(box,list,pick){box.innerHTML=list.map(p=>`<div data-id="${p.id}"><span>${esc(p.n)}<small>${p.snk?'Harga diisi sendiri · tanpa laba':esc(p.b)+' · stok '+p.st}</small></span>${ubdg(p.u)}<b>${p.snk?'—':rp(p.h1)}</b></div>`).join('');box.hidden=!list.length;box.style.display=list.length?'block':'none';box.onclick=e=>{const d=e.target.closest('[data-id]');if(d)pick(P(+d.dataset.id))}}
-let pend=null;
-function qtyMode(p){pend=p;hideRes();$('#q').value='';const i=$('#qinfo');i.style.display='block';i.textContent='▶ '+p.n+' ('+(p.snk?p.u:p.u+', stok '+p.st)+') – isi jumlah lalu tekan Enter (kosong = 1) · Esc = batal';const q=$('#qq');q.value='';q.style.outline='2px solid var(--a)';focusQty()}
-function focusQty(){const q=$('#qq');q.setAttribute('inputmode','decimal');const go=()=>{if(!pend)return;try{q.focus({preventScroll:false});q.select();q.click()}catch(e){}};go();[120,350,700].forEach(t=>setTimeout(()=>{if(pend&&document.activeElement!==q)go()},t))}
+let pend=null,qqKd=false;
+function qtyMode(p){pend=p;qqKd=false;hideRes();$('#q').value='';const i=$('#qinfo');i.style.display='block';i.textContent='▶ '+p.n+' ('+(p.snk?p.u:p.u+', stok '+p.st)+') – jumlah otomatis 1: tekan Enter/Go bila 1, atau ketik jumlah lain · Esc = batal';const q=$('#qq');q.value='1';q.style.outline='2px solid var(--a)';focusQty()}
+function focusQty(){const q=$('#qq');q.setAttribute('inputmode','decimal');const go=()=>{if(!pend)return;try{q.focus({preventScroll:false});q.select();q.setSelectionRange(0,q.value.length);q.click()}catch(e){}};go();[120,350,700].forEach(t=>setTimeout(()=>{if(!pend)return;if(document.activeElement!==q)go();else if(q.value==='1'&&q.selectionStart===q.selectionEnd){try{q.select();q.setSelectionRange(0,q.value.length)}catch(e){}}},t))}
 function qtyReset(){pend=null;$('#qinfo').style.display='none';const q=$('#qq');q.value='';q.style.outline=''}
 function addCart(p,n){if(!p)return;if(n==null)return qtyMode(p);if(!(n>0))return toast('Isi jumlah dulu');const c=p.snk?null:cart.find(x=>x.id===p.id);c?c.qty+=n:cart.push({id:p.id,qty:n,disc:0});qtyReset();$('#q').value='';hideRes();renderCart();if(p.snk){const r=$$('#cart input[data-f="pp"]'),f=r[r.length-1];if(f){f.focus();f.select();return}}$('#q').focus()}
 let ai=-1,cur=[];
@@ -670,10 +670,10 @@ function showRes(){const v=$('#q').value.replace(/^\d+(?:[.,]\d+)?\*/,'');if(!v.
 $('#q').oninput=showRes;$('#q').onfocus=showRes;$('#q').onblur=hideRes;$('#res').onmousedown=e=>e.preventDefault();
 $('#qq').onfocus=e=>e.target.select();const isEnter=e=>e.key==='Enter'||e.keyCode===13||e.which===13||e.key==='Go'||e.key==='Done';
 function commitQty(){if(!pend){toast('Pilih produk dulu');return $('#q').focus()}const raw=String($('#qq').value||'').trim();const n=raw===''?1:num(raw);if(!(n>0)){toast('Isi jumlah dulu');return $('#qq').focus()}addCart(pend,n)}
-$('#qq').onkeydown=e=>{if(e.key==='Escape'){qtyReset();$('#q').focus();return}if(isEnter(e)){e.preventDefault();commitQty()}};
+$('#qq').onkeydown=e=>{qqKd=true;if(e.key==='Escape'){qtyReset();$('#q').focus();return}if(isEnter(e)){e.preventDefault();commitQty()}};
 /* APK/Android: tombol Go/Done keyboard HP kadang tidak mengirim keydown Enter (keyCode 229) -> tangani juga lewat keyup & beforeinput */
-$('#qq').addEventListener('keyup',e=>{if(pend&&isEnter(e)){e.preventDefault();commitQty()}});
-$('#qq').addEventListener('beforeinput',e=>{if(e.inputType==='insertLineBreak'){e.preventDefault();if(pend)commitQty()}});
+$('#qq').addEventListener('keyup',e=>{if(pend&&qqKd&&isEnter(e)){e.preventDefault();qqKd=false;commitQty()}});
+$('#qq').addEventListener('beforeinput',e=>{if(e.inputType==='insertLineBreak'){e.preventDefault();if(pend&&qqKd)commitQty()}});
 $('#qadd').onclick=commitQty;
 $('#q').onkeydown=e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(cur.length){ai=DESK?Math.max(0,Math.min(cur.length-1,ai+(e.key==='ArrowDown'?1:-1))):(ai+(e.key==='ArrowDown'?1:-1)+cur.length)%cur.length;mark();$$('#res div')[ai].scrollIntoView({block:'nearest'})}return}
  if(!isEnter(e))return;e.preventDefault();let v=e.target.value,n=null;const m=v.match(/^(\d+(?:[.,]\d+)?)\*(.+)$/);if(m){n=num(m[1]);v=m[2]}
