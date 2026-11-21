@@ -2026,6 +2026,10 @@ function add(){
  const raw=$('#nb-hb').value.trim(),pr=raw===''?ep.hb:num(raw);
  if(pr<0){toast('Harga beli tidak valid');return}
  const ex=items.find(i=>i.id===ep.id);if(ex){ex.qty=+(ex.qty+q).toFixed(4);ex.price=pr}else items.push({id:ep.id,qty:q,price:pr});
+ ep=null;['#nbq','#nb-qty','#nb-hb'].forEach(s=>$(s).value='');$('#nb-info').textContent='';renderItems();$('#nbq').focus()}
+$('#nb-add').onclick=add;
+$('#nb-qty').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#nb-hb').focus();$('#nb-hb').select()}};
+$('#nb-hb').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add()}};
 
 /* ---------- simpan nota ---------- */
 function reset(){items=[];ep=null;['#nb-sup','#nb-inv','#nb-note','#nbq','#nb-qty','#nb-hb'].forEach(s=>$(s).value='');$('#nb-tgl').value=today();$('#nb-info').textContent='';renderItems()}
