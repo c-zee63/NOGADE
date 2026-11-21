@@ -472,7 +472,7 @@ const devCode=()=>SYNC.cfg&&+SYNC.cfg.code||0;
 const isMaster=()=>devCode()===1; /* HP Utama = Kode HP 1: patokan data & satu-satunya yang boleh mengubah pengaturan toko bersama */
 const newPid=()=>devCode()*1000000+S.settings.nextId++;
 const newSid=()=>{const base=devCode()*100000;let m=Math.max(+S.settings.nextSale||1,1);for(const s of S.sales)if(s.id>=base&&s.id<base+100000&&s.id-base>=m)m=s.id-base+1;while(S.sales.some(s=>s.id===base+m))m++;S.settings.nextSale=m+1;return base+m};
-const stNew=()=>({shP:{},shS:{},shL:{},shG:'',ver:null,out:{},cur:{p:EPOCH,s:EPOCH,l:EPOCH,g:EPOCH}});
+const stNew=()=>({shP:{},shS:{},shL:{},shG:'',ver:null,out:{},cur:{p:EPOCH,s:EPOCH,l:EPOCH,g:EPOCH,o:EPOCH},shO:{}});
 const dbBase=()=>'projects/'+SYNC.cfg.pid+'/databases/(default)/';
 async function tfetch(url,opt){const c=new AbortController(),t=setTimeout(()=>c.abort(),25000);try{return await fetch(url,{...opt,signal:c.signal})}finally{clearTimeout(t)}}
 function syncMsg(m){m=String(m||'');if(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL/.test(m))return'Email atau password Firebase salah';if(/API key|API_KEY/i.test(m))return'API Key salah';if(/PERMISSION_DENIED|Firestore 403/.test(m))return'Rules Firestore belum diatur / ditolak';if(/NOT_FOUND|Firestore 404/.test(m))return'Database Firestore belum dibuat atau Project ID salah';if(/abort|Failed to fetch|NetworkError|Load failed/i.test(m))return'Tidak ada koneksi internet';if(/429|RESOURCE_EXHAUSTED/.test(m))return'Kuota harian Firebase habis, lanjut otomatis besok';return m}
@@ -506,7 +506,8 @@ function syncDiff(){const st=SYNC.st,out=st.out,seen={};
  for(const e of S.log){const k=e._k||(e._k=devCode()+'_'+e.t+'_'+e.id);if(!st.shL[k]){out['l'+k]={j:JSON.stringify(e)};st.shL[k]=1}}
  {const cj=custJson();if(cj!==(st.shC===undefined?custCanon([],[]):st.shC)){out['h']={j:cj};st.shC=cj}}
  const g=gStr();if(g!==st.shG){if(isMaster())out['g']={j:g};st.shG=g}}
-function wr(k,e){const t=k[0],col={p:'products',s:'sales',l:'slog',g:'cfg',h:'cfg'}[t],id=t==='g'?'shop':t==='h'?'cust':k.slice(1);
+function wr(k,e){const t=k[0],col={p:'products',s:'sales',l:'slog',g:'cfg',h:'cfg',o:'orders'}[t],id=t==='g'?'shop':t==='h'?'cust':k.slice(1);
+ if(t==='o'&&e.del)return{delete:dbBase()+'documents/orders/'+id};
  const w={update:{name:dbBase()+'documents/'+col+'/'+id,fields:{j:{stringValue:e.j}}},updateMask:{fieldPaths:['j']},updateTransforms:[{fieldPath:'u',setToServerValue:'REQUEST_TIME'}]};
  if(t==='s'){w.update.fields.del={booleanValue:!!e.del};w.updateMask.fieldPaths.push('del')}
  if(t==='p'){w.update.fields.del={booleanValue:!!e.del};w.updateMask.fieldPaths.push('del');if(e.d)w.updateTransforms.push({fieldPath:'st',increment:{doubleValue:e.d}})}
@@ -531,15 +532,25 @@ function syncApply(c,d){const id=d.name.split('/').pop(),f=d.fields||{},j=f.j&&f
   if(o.ar&&loc.ar&&mergeAr(loc,o)){putSale(loc);st.shS[o.id]=shv(o);return true}return false}
  if(c==='l'){if(st.shL[id])return false;const o=JSON.parse(j);o._k=id;S.log.push(o);st.shL[id]=1;S.log.sort((a,b)=>a.t-b.t);return true}
  if(c==='g'){if(id==='cust')return mergeCusts(j);if(st.out['g'])return false;const o=JSON.parse(j),before=gStr();SHARED.forEach(k=>{if(k in o)S.settings[k]=o[k]});st.shG=gStr();if(before!==st.shG){try{brand()}catch(e){}return true}return false}
+ /* orderan dari HP sekunder (pelanggan masih berpiutang) -> masuk daftar Tahan HP 1, lalu dokumen cloud dihapus (hemat kuota) */
+ if(c==='o'){if(!isMaster())return false;if(!st.shO)st.shO={};
+  if(st.shO[id]){if(!st.out['o'+id]){st.out['o'+id]={del:true};syncTouch()}return false}
+  let o;try{o=JSON.parse(j)}catch(e){return false}if(!o||!Array.isArray(o.cart)||!o.cart.length)return false;
+  S.held.push({t:o.t||Date.now(),cart:o.cart,dt:o.dt||'',cname:o.cname||'',xfrom:o.from||'',xby:o.by||'',xid:id});
+  st.shO[id]=Date.now();{const ks=Object.keys(st.shO);if(ks.length>300)ks.sort((a,b)=>st.shO[a]-st.shO[b]).slice(0,ks.length-200).forEach(k=>delete st.shO[k])}
+  st.out['o'+id]={del:true};syncTouch();
+  try{audit('orderan_dari_hp',id,{pelanggan:o.cname||'-',dari_hp:o.from||'?',kasir:o.by||'',item:o.cart.length},'sinkronisasi')}catch(e){}
+  try{toast('📥 Orderan dari HP '+(o.from||'?')+(o.cname?' ('+o.cname+')':'')+' masuk ke daftar Tahan. Tekan "Ambil tahanan".',8000)}catch(e){}
+  return true}
  return false}
-async function syncPull(){const st=SYNC.st;let changed=false;
- for(const[c,col]of[['g','cfg'],['p','products'],['s','sales'],['l','slog']]){
+async function syncPull(){const st=SYNC.st;let changed=false;if(!st.cur.o)st.cur.o=EPOCH;if(!st.shO)st.shO={};
+ for(const[c,col]of[['g','cfg'],['p','products'],['s','sales'],['l','slog']].concat(isMaster()?[['o','orders']]:[])){
   for(let n=0;n<200;n++){const res=await fsq('documents:runQuery',{structuredQuery:{from:[{collectionId:col}],where:{fieldFilter:{field:{fieldPath:'u'},op:'GREATER_THAN_OR_EQUAL',value:{timestampValue:st.cur[c]}}},orderBy:[{field:{fieldPath:'u'},direction:'ASCENDING'}],limit:300}});
    const docs=res.filter(x=>x.document).map(x=>x.document);if(!docs.length)break;
    for(const d of docs)if(syncApply(c,d))changed=true;
    const last=docs[docs.length-1].fields.u.timestampValue,adv=last!==st.cur[c];st.cur[c]=last;if(docs.length<300||!adv)break}}
  syncSave();if(changed)syncRefresh();return changed}
-function syncRefresh(){save('products','settings','log');cart=cart.filter(c=>P(c.id));const s=document.querySelector('section.on'),v=s&&s.id;try{({'v-kasir':renderCart,'v-barang':renderBarang,'v-stok':renderStok,'v-riwayat':renderRiwayat,'v-laporan':renderLaporan})[v]&&({'v-kasir':renderCart,'v-barang':renderBarang,'v-stok':renderStok,'v-riwayat':renderRiwayat,'v-laporan':renderLaporan})[v]()}catch(e){}try{if(v==='v-set')fillShared()}catch(e){}}
+function syncRefresh(){save('products','settings','log','held');cart=cart.filter(c=>P(c.id));const s=document.querySelector('section.on'),v=s&&s.id;try{({'v-kasir':renderCart,'v-barang':renderBarang,'v-stok':renderStok,'v-riwayat':renderRiwayat,'v-laporan':renderLaporan})[v]&&({'v-kasir':renderCart,'v-barang':renderBarang,'v-stok':renderStok,'v-riwayat':renderRiwayat,'v-laporan':renderLaporan})[v]()}catch(e){}try{if(v==='v-set')fillShared()}catch(e){}}
 let _sv;function syncSave(){clearTimeout(_sv);_sv=setTimeout(async()=>{if(!idb||!SYNC.st)return;try{await flush();await req(tx('kv','readwrite').put(SYNC.st,'syncst'))}catch(e){}},700)}
 function syncTouch(){if(!SYNC.st)return;clearTimeout(SYNC.tt);SYNC.tt=setTimeout(syncRun,800)}
 async function syncRun(){if(!SYNC.cfg||!SYNC.st)return;if(SYNC.busy){SYNC.again=true;return}SYNC.busy=true;
@@ -700,12 +711,12 @@ $('#sm-quick').onchange=()=>{S.settings.smode='quick';save('settings');applySM()
 $('#pm-qty').onchange=()=>{S.settings.pmode='qty';save('settings');applyPM();renderCart()};$('#pm-nor').onchange=()=>{S.settings.pmode='normal';save('settings');applyPM();renderCart()};
 function resetCart(){cart=[];$('#dtot').value=0;$('#paid').value='';dkSet(false);renderCart()}
 $('#clr').onclick=()=>{if(!cart.length||confirm('Batalkan transaksi ini?'))resetCart()};
-$('#hold').onclick=()=>{if(!cart.length)return;S.held.push({t:Date.now(),cart,dt:$('#dtot').value});save('held');resetCart();toast('Transaksi ditahan')};
-$('#rec').onclick=()=>{const d=$('#dg');d.innerHTML='<h3>Transaksi ditahan</h3>'+(S.held.map((h,i)=>`<div class="bar"><span style="flex:1">${dstr(h.t)} · ${h.cart.length} item</span><button class="p" data-r="${i}">Ambil</button><button class="d" data-x="${i}">Hapus</button></div>`).join('')||'<p class="m">Tidak ada.</p>')+'<button onclick="$(\'#dg\').close()">Tutup</button>';d.showModal();
- d.onclick=e=>{const r=e.target.dataset.r,x=e.target.dataset.x;if(r!==undefined){if(cart.length&&!confirm('Keranjang saat ini akan diganti. Lanjut?'))return;const h=S.held.splice(+r,1)[0];cart=h.cart.filter(c=>P(c.id));$('#dtot').value=h.dt;dkSet(num(h.dt)>0);save('held');d.close();renderCart()}if(x!==undefined){S.held.splice(+x,1);save('held');$('#rec').click()}}};
+$('#hold').onclick=()=>{if(!cart.length)return;if(window.dkArHoldXfer&&window.dkArHoldXfer())return;S.held.push({t:Date.now(),cart,dt:$('#dtot').value});save('held');resetCart();toast('Transaksi ditahan')};
+$('#rec').onclick=()=>{const d=$('#dg');d.innerHTML='<h3>Transaksi ditahan</h3>'+(S.held.map((h,i)=>`<div class="bar"><span style="flex:1">${dstr(h.t)} · ${h.cart.length} item${h.cname?' · <b>'+esc(h.cname)+'</b>':''}${h.xfrom?' · <span class=\"low\">dari HP '+esc(h.xfrom)+(h.xby?' ('+esc(h.xby)+')':'')+'</span>':''}</span><button class="p" data-r="${i}">Ambil</button><button class="d" data-x="${i}">Hapus</button></div>`).join('')||'<p class="m">Tidak ada.</p>')+'<button onclick="$(\'#dg\').close()">Tutup</button>';d.showModal();
+ d.onclick=e=>{const r=e.target.dataset.r,x=e.target.dataset.x;if(r!==undefined){if(cart.length&&!confirm('Keranjang saat ini akan diganti. Lanjut?'))return;const h=S.held.splice(+r,1)[0];cart=h.cart.filter(c=>P(c.id));$('#dtot').value=h.dt;dkSet(num(h.dt)>0);save('held');d.close();renderCart();if(h.cname){const ce=$('#custname');if(ce){ce.value=h.cname;ce.dispatchEvent(new Event('input',{bubbles:true}))}else toast('Pelanggan: '+h.cname+' (isi namanya bila bayar Piutang)',7000)}}if(x!==undefined){S.held.splice(+x,1);save('held');$('#rec').click()}}};
 $('#pay').onclick=pay;
 $('#doprint').onchange=()=>{S.settings.autoPrint=$('#doprint').checked;save('settings')};$('#doshare').onchange=()=>{S.settings.autoShare=$('#doshare').checked;save('settings')};
-function pay(){if(!cart.length)return toast('Keranjang kosong');if(cart.some(c=>P(c.id).snk&&!(line(c)>0)))return toast('Isi harga Snack eceran dulu');const t=totals(),m=$('#method').value,paid=m==='Tunai'?num($('#paid').value):(m==='Piutang')?Math.max(0,Math.min(num($('#paid').value),t.total)):t.total;
+function pay(){if(!cart.length)return toast('Keranjang kosong');if(window.dkArBlockPay&&window.dkArBlockPay())return;if(cart.some(c=>P(c.id).snk&&!(line(c)>0)))return toast('Isi harga Snack eceran dulu');const t=totals(),m=$('#method').value,paid=m==='Tunai'?num($('#paid').value):(m==='Piutang')?Math.max(0,Math.min(num($('#paid').value),t.total)):t.total;
  const bad=cart.filter(below);if(bad.length)return toast('Tidak bisa dijual di bawah modal: '+bad.map(c=>P(c.id).n).join(', '));if(t.profit<-1)return toast('Diskon total membuat penjualan di bawah modal');
  if(m==='Tunai'&&t.total>0&&!(paid>0)){toast('Isi nominal dibayar, lalu tekan Bayar / tombol =>');$('#paid').focus();return}
  if(paid<t.total&&!(m==='Piutang')){toast('Pembayaran kurang');if(m==='Tunai')$('#paid').focus();return}
@@ -1471,6 +1482,61 @@ W.dkArVoidBlock=s=>{const r=recv(s);if(r>0){toast('Nota piutang ini sudah ada pe
 /* ---------- pelanggan ---------- */
 function custMap(){const m=new Map();S.sales.filter(s=>s.ar).forEach(s=>{const k=ckey(s.ar.cust);if(!k)return;let c=m.get(k);if(!c){c={key:k,name:s.ar.cust,tel:'',list:[]};m.set(k,c)}if(s.ar.tel)c.tel=s.ar.tel;if(!s.void)c.list.push(s)});return m}
 
+/* ---------- HP sekunder: peringatan piutang + kirim orderan ke HP 1 ----------
+   HP sekunder = sinkronisasi aktif & Kode HP bukan 1. Tugasnya hanya membantu input pesanan.
+   Nama pelanggan terisi + masih ada sisa piutang -> peringatan merah (semua metode bayar).
+   Tekan Bayar -> notifikasi besar; tombol TAHAN mengirim orderan ke daftar Tahan HP 1 (koleksi cloud 'orders').
+   Hanya orderan pelanggan yang masih berpiutang yang disinkron (hemat kuota); HP 1 mengambil lalu menghapusnya dari cloud. */
+const isSecondary=()=>!!(SYNC&&SYNC.cfg&&!isMaster());
+W.dkArDebt=name=>{const k=ckey(name);if(!k)return{sisa:0,n:0};const c=W.dkCustFind?W.dkCustFind(name):null;
+ const L=notas().filter(s=>sisa(s)>0&&((c&&(s.cid===c.id||(s.ar&&s.ar.cid===c.id)))||ckey(s.ar.cust)===k||ckey(s.cname)===k));
+ return{sisa:L.reduce((a,s)=>a+sisa(s),0),n:L.length}};
+W.dkArGuard=name=>{if(!arOn()||!isSecondary())return null;const d=W.dkArDebt(name);return d.sisa>0?d:null};
+const fresh=()=>SYNC.err?' Data piutang mungkin belum terbaru (sinkron bermasalah).':SYNC.last?' Data piutang per sinkron terakhir '+new Date(SYNC.last).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})+'.':'';
+const warnTxt=(name,d)=>'⚠ PERHATIAN: Pelanggan "'+name+'" masih punya sisa piutang '+rp(d.sisa)+' ('+d.n+' nota). Konfirmasi dulu ke HP 1 (perangkat primer) dan beri tahu pelanggan bahwa transaksi ini hanya bisa diselesaikan di Owner / HP 1 (perangkat primer). HP ini hanya untuk membantu input pesanan.'+fresh();
+const warnSty='display:none;margin:6px 0;padding:8px 10px;border:2px solid var(--r);border-radius:8px;background:rgba(220,38,38,.12);color:var(--r);font-weight:700;line-height:1.35';
+function arWarn(){
+ const e=$('#custname');let w=$('#ar-warn');
+ if(!e){if(w)w.style.display='none';return}
+ if(!w){w=document.createElement('div');w.id='ar-warn';w.setAttribute('role','alert');w.style.cssText=warnSty;const row=$('#custrow');(row||e.parentNode).after(w)}
+ const nm=e.value.trim(),d=nm?W.dkArGuard(nm):null;
+ if(d){const t=warnTxt(nm,d);if(w.textContent!==t)w.textContent=t;w.style.display='block'}else w.style.display='none'}
+W.dkArWarn=arWarn;
+/* penanda jumlah orderan di tombol "Ambil tahanan" (HP 1 melihat orderan kiriman HP lain) */
+function holdBadge(){const b=$('#rec');if(!b)return;const n=S.held.length,x=S.held.filter(h=>h.xfrom).length;b.textContent='Ambil tahanan'+(n?' ('+n+')':'');b.style.background=x?'var(--r)':'';b.style.color=x?'#fff':''}
+/* kirim orderan ke HP 1: masuk antrean sinkron (tersimpan di HP sampai terkirim, aman bila offline) */
+function xfer(name,d){
+ if(!cart.length)return;
+ if(!SYNC.st){toast('Sinkronisasi belum siap, orderan belum bisa dikirim ke HP 1',6000);return}
+ const id=devCode()+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+ const o={id,t:Date.now(),from:devCode(),by:S.settings.cashier||'',cname:name,debt:d.sisa,cart:JSON.parse(JSON.stringify(cart)),dt:$('#dtot').value};
+ SYNC.st.out['o'+id]=({j:JSON.stringify(o)});
+ try{audit('orderan_ke_hp1',id,{pelanggan:name,item:cart.length,sisa_piutang:d.sisa})}catch(e){}
+ const ce=$('#custname');if(ce)ce.value='';resetCart();
+ syncSave();syncTouch();
+ toast('✅ Orderan "'+name+'" dikirim ke HP 1 (daftar Tahan). Bila internet mati, terkirim otomatis saat online.',7000)}
+/* notifikasi besar saat Bayar ditekan di HP sekunder */
+function bigDlg(name,d){
+ let x=$('#dgx');if(!x){x=document.createElement('dialog');x.id='dgx';document.body.appendChild(x)}
+ x.style.cssText='max-width:560px;width:92vw;border:4px solid var(--r);border-radius:14px;padding:18px';
+ x.innerHTML=`<div style="font-size:26px;font-weight:800;color:var(--r);line-height:1.2">⛔ PEMBAYARAN & STRUK TIDAK BISA DI HP INI</div>
+ <p style="font-size:19px;margin:12px 0;font-weight:700">Pembayaran dan struk nota orderan ini hanya bisa dilakukan di HP/PC primer.</p>
+ <p style="font-size:16px;margin:0 0 10px">Pelanggan <b>${esc(name)}</b> masih punya sisa piutang <b class="low">${rp(d.sisa)}</b> (${d.n} nota).</p>
+ <p style="font-size:19px;margin:0 0 14px;font-weight:700">Tekan <b>TAHAN</b> untuk transfer orderan ini ke Owner (HP/PC primer / HP 1).</p>
+ <div class="bar" style="margin:0"><button class="p" id="xf-ok" style="flex:1;font-size:22px;padding:14px">TAHAN</button><button id="xf-no" style="padding:14px">Batal</button></div>`;
+ $('#xf-ok').onclick=()=>{x.close();xfer(name,d)};$('#xf-no').onclick=()=>x.close();x.showModal()}
+/* dipanggil pay(): true = diblokir (HP sekunder & pelanggan masih berutang) */
+W.dkArBlockPay=()=>{const n=W.dkCustSel?W.dkCustSel():'',d=n?W.dkArGuard(n):null;if(!d)return false;
+ arWarn();try{audit('piutang_diblokir_hp_sekunder','',{pelanggan:n,sisa_piutang:d.sisa,nota:d.n})}catch(e){}bigDlg(n,d);return true};
+/* dipanggil tombol Tahan: di HP sekunder + pelanggan berutang, tahan = kirim ke HP 1 */
+W.dkArHoldXfer=()=>{const n=W.dkCustSel?W.dkCustSel():'',d=n?W.dkArGuard(n):null;if(!d)return false;xfer(n,d);return true};
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='custname')arWarn()});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='custname')arWarn()});
+/* ikut alur aplikasi (tanpa timer): render keranjang (juga dipanggil setelah sinkron), hitung ulang */
+{const _rc=renderCart;renderCart=function(){const r=_rc.apply(this,arguments);try{arWarn();holdBadge()}catch(e){}return r}}
+{const _cc=calc;calc=function(){const r=_cc.apply(this,arguments);try{arWarn()}catch(e){}return r}}
+try{holdBadge()}catch(e){}
+
 /* ---------- jual piutang di Kasir: tanya data pelanggan, lalu pay() dipanggil lagi ---------- */
 W.dkArAsk=function(t,dp){
  if(!(t.total>0))return toast('Total 0 – tidak perlu dicatat sebagai piutang');
@@ -1483,12 +1549,13 @@ W.dkArAsk=function(t,dp){
  <label class="m" style="display:block;margin-top:8px">Jatuh tempo (opsional)</label><div class="bar" style="margin:0"><input id="ar-d" type="date" style="flex:1;min-width:150px"><button type="button" data-dd="7">+7 hari</button><button type="button" data-dd="14">+14</button><button type="button" data-dd="30">+30</button><button type="button" data-dd="0">Kosongkan</button></div>
  <label class="m" style="display:block;margin-top:8px">Catatan (opsional)</label><input id="ar-c" maxlength="120" autocomplete="off" style="width:100%">
  ${dp>0?`<label class="m" style="display:block;margin-top:8px">Uang muka (DP) dibayar lewat</label><select id="ar-m" style="width:100%">${metOpts()}</select>`:''}
- <p class="low" id="ar-e" style="min-height:1.2em;margin:8px 0 0"></p><div ${bar}><button class="p" id="ar-ok">Simpan piutang</button><button id="ar-no">Batal</button></div>`;
+ <p class="low" id="ar-e" style="min-height:1.2em;margin:8px 0 0"></p><div id="ar-w2" role="alert" style="${warnSty}"></div><div ${bar}><button class="p" id="ar-ok">Simpan piutang</button><button id="ar-no">Batal</button></div>`;
  let ok=false;const nm=$('#ar-n'),tl=$('#ar-t');
- const fill=()=>{const c=cm.get(ckey(nm.value)),m=W.dkCustFind?W.dkCustFind(nm.value):null,ad=$('#ar-a'),tel=(c&&c.tel)||(m&&m.tel)||'';if(tel&&!tl.value)tl.value=tel;if(ad&&m&&m.addr&&!ad.value)ad.value=m.addr};nm.oninput=fill;fill();
+ const fill=()=>{const c=cm.get(ckey(nm.value)),m=W.dkCustFind?W.dkCustFind(nm.value):null,ad=$('#ar-a'),tel=(c&&c.tel)||(m&&m.tel)||'';if(tel&&!tl.value)tl.value=tel;if(ad&&m&&m.addr&&!ad.value)ad.value=m.addr};const w2=()=>{const x=$('#ar-w2'),n=nm.value.trim(),d=n?W.dkArGuard(n):null;if(d){x.textContent=warnTxt(n,d);x.style.display='block'}else x.style.display='none'};nm.oninput=()=>{fill();w2()};fill();w2();
  $$('#dga [data-dd]').forEach(b=>b.onclick=()=>{if(b.dataset.dd==='0'){$('#ar-d').value='';return}const x=new Date();x.setDate(x.getDate()+(+b.dataset.dd));x.setMinutes(x.getMinutes()-x.getTimezoneOffset());$('#ar-d').value=x.toISOString().slice(0,10)});
  const go=()=>{const c=nm.value.trim(),due=$('#ar-d').value;
   if(!c){$('#ar-e').textContent='Nama pelanggan wajib diisi';nm.focus();return}
+  {const g=W.dkArGuard(c);if(g){d.close();bigDlg(c,g);return}}
   if(due&&due<today()){$('#ar-e').textContent='Jatuh tempo tidak boleh sebelum hari ini';return}
   ok=true;W.dkARinfo={cust:c,tel:tl.value.trim(),addr:($('#ar-a')?$('#ar-a').value.trim():''),due,note:$('#ar-c').value.trim(),dpm:dp>0?$('#ar-m').value:'Tunai'};d.close();pay()};
  $('#ar-ok').onclick=go;$('#ar-no').onclick=()=>d.close();
